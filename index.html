@@ -449,6 +449,43 @@ tr.total-row td { background: var(--surface3); font-weight: 600; color: var(--ac
       <div class="archive-grid" id="archive-grid"></div>
     </div>
 
+    <!-- VENDOR PAYMENTS -->
+    <div id="tab-vendor-payments" class="screen">
+      <div class="section-hdr"><h2>Vendor Payments</h2><span class="pill">Payment Register</span></div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:24px">
+        <div style="font-size:13px;color:var(--text3);margin-bottom:6px">Log each payment made to a vendor — bank transfer, UPI or cash. Outstanding is calculated automatically per vendor.</div>
+      </div>
+      <div class="tbl-wrap">
+        <table class="entry-table" id="vpay-table">
+          <thead><tr>
+            <th class="left">Date</th>
+            <th class="left">Vendor</th>
+            <th>Amount Paid (₹)</th>
+            <th class="left">Mode</th>
+            <th class="left">Reference / Note</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="vpay-body"></tbody>
+        </table>
+      </div>
+      <button class="add-row-btn" onclick="addVPayRow()">＋ Add Payment</button>
+      <div style="margin-top:32px">
+        <div class="section-hdr" style="margin-bottom:12px"><h2 style="font-size:20px">Outstanding Balance per Vendor</h2></div>
+        <div id="vpay-outstanding"></div>
+      </div>
+    </div>
+
+    <!-- VENDOR SETUP -->
+    <div id="tab-vendor-setup" class="screen">
+      <div class="section-hdr"><h2>Vendor Management</h2><span class="pill">Add / Edit / Deactivate</span></div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:24px">
+        <div style="font-size:13px;color:var(--text3)">Changes here affect all future months. Historical data for deactivated vendors is preserved. Vendor list is shared across all users.</div>
+      </div>
+      <div id="vendor-setup-list"></div>
+      <button class="add-row-btn" onclick="addVendorRow()">＋ Add New Vendor</button>
+      <button class="modal-btn" style="width:auto;padding:12px 28px;margin-top:20px;font-size:15px" onclick="saveVendorList()">💾 Save Vendor List</button>
+    </div>
+
   </div><!-- /main -->
 </div><!-- /app -->
 
@@ -481,7 +518,8 @@ const DISCOVERY   = ['https://sheets.googleapis.com/$discovery/rest?version=v4']
 
 const MONTHS      = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DAYS_MAP    = [31,28,31,30,31,30,31,31,30,31,30,31];
-const VENDORS     = ['Milk','BREAKFAST - Neeraj Chaurasia','Rumali Roti','Royal Meat','Silver Foil','Rewari','Spices-ECOM','Coal','Global Packaging','Singh Dry Fruit','Vegetables - Rajesh','Dairy','Chicken - Akram','Sadik Trading','Packing Material - Montu','DeliverIT','Gas Cylinder','Other'];
+const DEFAULT_VENDORS = ['Milk','BREAKFAST - Neeraj Chaurasia','Rumali Roti','Royal Meat','Silver Foil','Rewari','Spices-ECOM','Coal','Global Packaging','Singh Dry Fruit','Vegetables - Rajesh','Dairy','Chicken - Akram','Sadik Trading','Packing Material - Montu','DeliverIT','Gas Cylinder','Other'];
+let VENDORS = [...DEFAULT_VENDORS]; // mutable — loaded from sheet
 const SALES_CATS  = ['Zomato','Swiggy','Toing','Card','UPI','Cash','Any Other'];
 const ONLINE_CATS = ['Zomato','Swiggy','Toing']; // commission-bearing
 
@@ -518,6 +556,7 @@ function blankData(m,y,prevWorkers){
     vendorPurchases: vend,
     vendorPayments: Object.fromEntries(VENDORS.map(v=>[v,{}])),
     cashVendorPmts: {},
+    vendorPayLog: [],  // [{date, vendor, amount, mode, ref}] — flat payment register
   };
 }
 
@@ -578,6 +617,7 @@ async function onSignedIn(){
   document.getElementById('nav').style.display='flex';
   // ensure INDEX tab exists
   await ensureIndex();
+  await loadVendorList();
   await loadIndex();
   // default: current month
   const now=new Date();
@@ -673,10 +713,155 @@ function renderAll(){
   renderSales();
   renderExpenses();
   renderVendors();
+  renderVendorPayments();
+  renderVendorSetup();
   renderAttendance();
   renderAdvances();
   renderReports();
   renderArchive();
+}
+
+// ── VENDOR PAYMENT LOG ───────────────────────────────────────────────────────
+function renderVendorPayments(){
+  if(!data) return;
+  if(!data.vendorPayLog) data.vendorPayLog=[];
+  const tbody=document.getElementById('vpay-body');
+  if(!tbody) return;
+  tbody.innerHTML='';
+  data.vendorPayLog.forEach((p,i)=>tbody.appendChild(vpayRow(p,i)));
+  renderVpayOutstanding();
+}
+
+function vpayRow(p,i){
+  const tr=document.createElement('tr');
+  const vOpts=VENDORS.map(v=>`<option value="${v}" ${p.vendor===v?'selected':''}>${v}</option>`).join('');
+  tr.innerHTML=`
+    <td><input value="${p.date||''}" placeholder="DD-Mon-YY" onchange="data.vendorPayLog[${i}].date=this.value"></td>
+    <td><select onchange="data.vendorPayLog[${i}].vendor=this.value;renderVpayOutstanding()" style="width:100%;background:var(--inp-bg);border:1px solid var(--inp-border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:var(--font-body);font-size:14px">
+      <option value="">-- Select Vendor --</option>${vOpts}</select></td>
+    <td><input type="number" value="${p.amount||''}" placeholder="0" onchange="data.vendorPayLog[${i}].amount=+this.value;renderVpayOutstanding()"></td>
+    <td><select onchange="data.vendorPayLog[${i}].mode=this.value" style="width:100%;background:var(--inp-bg);border:1px solid var(--inp-border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:var(--font-body);font-size:14px">
+      <option ${p.mode==='Bank Transfer'?'selected':''}>Bank Transfer</option>
+      <option ${p.mode==='UPI'?'selected':''}>UPI</option>
+      <option ${p.mode==='Cash'?'selected':''}>Cash</option>
+      <option ${p.mode==='Cheque'?'selected':''}>Cheque</option>
+    </select></td>
+    <td><input value="${p.ref||''}" placeholder="UTR / note" onchange="data.vendorPayLog[${i}].ref=this.value"></td>
+    <td><button class="del-btn" onclick="delVPayRow(${i})">✕</button></td>`;
+  return tr;
+}
+function addVPayRow(){
+  if(!data.vendorPayLog) data.vendorPayLog=[];
+  const today=new Date();
+  const dd=String(today.getDate()).padStart(2,'0');
+  const mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][today.getMonth()];
+  data.vendorPayLog.push({date:`${dd}-${mon}`,vendor:'',amount:0,mode:'Bank Transfer',ref:''});
+  renderVendorPayments();
+}
+function delVPayRow(i){ data.vendorPayLog.splice(i,1); renderVendorPayments(); }
+
+function renderVpayOutstanding(){
+  const el=document.getElementById('vpay-outstanding');
+  if(!el) return;
+  // per-vendor: opening + purchases - paid
+  const rows=VENDORS.map(v=>{
+    const opening=+(data.vendorOpening[v]||0);
+    const purchases=Object.values(data.vendorPurchases||{}).reduce((a,r)=>a+(+r[v]||0),0);
+    const paid=(data.vendorPayLog||[]).filter(p=>p.vendor===v).reduce((a,p)=>a+(+p.amount||0),0);
+    const outstanding=opening+purchases-paid;
+    return {v,opening,purchases,paid,outstanding};
+  }).filter(r=>r.opening||r.purchases||r.paid);
+
+  if(!rows.length){ el.innerHTML='<div style="color:var(--text3);padding:16px 0">No vendor data yet for this month.</div>'; return; }
+
+  const totalOS=rows.reduce((a,r)=>a+r.outstanding,0);
+  let html=`<div class="tbl-wrap"><table>
+    <thead><tr>
+      <th class="left">Vendor</th>
+      <th>Opening Balance</th>
+      <th>Month Purchases</th>
+      <th>Total Paid</th>
+      <th>Outstanding</th>
+    </tr></thead><tbody>`;
+  rows.forEach(r=>{
+    const color=r.outstanding>0?'var(--red)':r.outstanding<0?'var(--green)':'var(--text3)';
+    html+=`<tr>
+      <td style="text-align:left;font-weight:500">${r.v}</td>
+      <td>${r.opening?'₹'+r.opening.toLocaleString('en-IN'):'—'}</td>
+      <td>₹${r.purchases.toLocaleString('en-IN')}</td>
+      <td style="color:var(--green)">₹${r.paid.toLocaleString('en-IN')}</td>
+      <td style="color:${color};font-weight:600">₹${r.outstanding.toLocaleString('en-IN')}</td>
+    </tr>`;
+  });
+  html+=`</tbody><tfoot><tr class="total-row">
+    <td style="text-align:left">TOTAL</td><td>—</td><td>—</td><td>—</td>
+    <td style="color:${totalOS>0?'var(--red)':'var(--green)'};font-weight:700">₹${totalOS.toLocaleString('en-IN')}</td>
+  </tr></tfoot></table></div>`;
+  el.innerHTML=html;
+}
+
+// ── VENDOR SETUP ─────────────────────────────────────────────────────────────
+// vendorMasterList stored in Google Sheet tab "VENDOR_LIST" as JSON
+let vendorMasterList=[...DEFAULT_VENDORS]; // {name, active}
+
+async function loadVendorList(){
+  try{
+    await ensureTab('VENDOR_LIST');
+    const rows=await sheetsGet('VENDOR_LIST!A1');
+    if(rows.length&&rows[0][0]){
+      const parsed=JSON.parse(rows[0][0]);
+      if(Array.isArray(parsed)&&parsed.length){
+        vendorMasterList=parsed;
+        VENDORS=vendorMasterList.filter(v=>typeof v==='string'?true:v.active!==false).map(v=>typeof v==='string'?v:v.name);
+      }
+    }
+  }catch(e){ console.log('Using default vendor list'); }
+}
+
+async function saveVendorList(){
+  try{
+    await ensureTab('VENDOR_LIST');
+    await sheetsUpdate('VENDOR_LIST!A1',[[JSON.stringify(vendorMasterList)]]);
+    // Update active VENDORS array
+    VENDORS=vendorMasterList.filter(v=>v.active!==false).map(v=>v.name);
+    toast('Vendor list saved ✓','success');
+    renderVendors();
+    renderVendorPayments();
+  }catch(e){ toast('Save failed: '+e.message,'error'); }
+}
+
+function renderVendorSetup(){
+  const el=document.getElementById('vendor-setup-list');
+  if(!el) return;
+  // Normalise vendorMasterList to objects
+  vendorMasterList=vendorMasterList.map(v=>typeof v==='string'?{name:v,active:true}:v);
+  let html='<div style="display:flex;flex-direction:column;gap:8px">';
+  vendorMasterList.forEach((v,i)=>{
+    const isActive=v.active!==false;
+    html+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface);border:1px solid ${isActive?'var(--border)':'var(--border2)'};border-radius:10px;opacity:${isActive?1:0.55}">
+      <span style="width:28px;text-align:center;color:var(--text3);font-size:14px">${i+1}</span>
+      <input value="${v.name}" placeholder="Vendor name" onchange="vendorMasterList[${i}].name=this.value"
+        style="flex:1;background:var(--inp-bg);border:1px solid var(--inp-border);border-radius:7px;padding:8px 12px;color:var(--text);font-family:var(--font-body);font-size:14px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text2);cursor:pointer;white-space:nowrap">
+        <input type="checkbox" ${isActive?'checked':''} onchange="vendorMasterList[${i}].active=this.checked;renderVendorSetup()"
+          style="width:16px;height:16px;cursor:pointer">
+        Active
+      </label>
+      <button class="del-btn" onclick="removeVendor(${i})" title="Remove permanently">🗑</button>
+    </div>`;
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+function addVendorRow(){
+  vendorMasterList.push({name:'',active:true});
+  renderVendorSetup();
+}
+function removeVendor(i){
+  if(!confirm('Remove this vendor permanently from the list?')) return;
+  vendorMasterList.splice(i,1);
+  renderVendorSetup();
 }
 
 // ── SALES TABLE ──────────────────────────────────────────────────────────────
@@ -849,8 +1034,8 @@ function renderReports(){
   const totalVendor=VENDORS.reduce((a,v)=>a+Object.values(data.vendorPurchases||{}).reduce((b,r)=>b+(+r[v]||0),0),0);
   const totalExp=(data.expenses||[]).reduce((a,e)=>a+(+e.amount||0),0);
   const totalAdv=(data.advances||[]).reduce((a,e)=>a+(+e.amount||0),0);
-  const totalPayroll=calcTotalPayroll();
-  const net=netSales-totalVendor-totalExp-totalPayroll;
+  const grossPayroll=calcGrossPayroll();   // basic + OT, before advance deduction
+  const net=netSales-totalVendor-totalExp-grossPayroll-totalAdv;
 
   // per-channel breakdown
   let salesRows='';
@@ -926,7 +1111,7 @@ function renderReports(){
   <div class="tbl-wrap"><table>
     <thead><tr><th class="left">Worker</th><th>Days</th><th>OT2</th><th>OT4</th><th>OT Hrs</th><th>Basic</th><th>OT Amt</th><th>Advance</th><th>Net Payable</th></tr></thead>
     <tbody>${attRows}</tbody>
-    <tfoot><tr class="total-row"><td colspan="5">Total Payroll</td><td colspan="3"></td><td>₹${totalPayroll.toLocaleString('en-IN')}</td></tr></tfoot>
+    <tfoot><tr class="total-row"><td colspan="5">Total</td><td colspan="3"></td><td>₹${grossPayroll.toLocaleString('en-IN')}</td></tr></tfoot>
   </table></div>
 </div>
 
@@ -935,11 +1120,13 @@ function renderReports(){
   <div class="pl-row income"><span class="pl-lbl">Net Sales (after commission)</span><span class="pl-val" style="color:var(--green)">₹${netSales.toLocaleString('en-IN')}</span></div>
   <div class="pl-row expense"><span class="pl-lbl">(-) Vendor Purchases</span><span class="pl-val" style="color:var(--red)">(₹${totalVendor.toLocaleString('en-IN')})</span></div>
   <div class="pl-row expense"><span class="pl-lbl">(-) Cash Expenses</span><span class="pl-val" style="color:var(--red)">(₹${totalExp.toLocaleString('en-IN')})</span></div>
-  <div class="pl-row expense"><span class="pl-lbl">(-) Staff Payroll (net of advances)</span><span class="pl-val" style="color:var(--red)">(₹${totalPayroll.toLocaleString('en-IN')})</span></div>
+  <div class="pl-row expense"><span class="pl-lbl">(-) Gross Salary &amp; OT Payable</span><span class="pl-val" style="color:var(--red)">(₹${grossPayroll.toLocaleString('en-IN')})</span></div>
+  <div class="pl-row expense"><span class="pl-lbl">(-) Advances Paid to Staff</span><span class="pl-val" style="color:var(--red)">(₹${totalAdv.toLocaleString('en-IN')})</span></div>
   <div class="pl-row net"><span class="pl-lbl">NET PROFIT / (LOSS)</span><span class="pl-val" style="color:${net>=0?'var(--green)':'var(--red)'}">₹${net.toLocaleString('en-IN')}</span></div>
 </div>`;
 }
-function calcTotalPayroll(){
+function calcGrossPayroll(){
+  // Basic + OT only, advances treated separately in P&L
   return (data.workers||[]).reduce((tot,w,wi)=>{
     const rec=data.attendance[wi]||{};
     const vals=Object.values(rec).map(v=>(v||'').toUpperCase());
@@ -949,10 +1136,10 @@ function calcTotalPayroll(){
     const otHrs=ot2*2+ot4*4;
     const basic=w.salary?Math.round(w.salary/26*dp):0;
     const otAmt=otHrs*(w.otRate||100);
-    const advAmt=(data.advances||[]).filter(a=>a.worker===w.name).reduce((a,e)=>a+(+e.amount||0),0);
-    return tot+basic+otAmt-advAmt;
+    return tot+basic+otAmt;
   },0);
 }
+function calcTotalPayroll(){ return calcGrossPayroll(); } // alias kept for XLSX
 
 // ── ARCHIVE ──────────────────────────────────────────────────────────────────
 function renderArchive(){
@@ -1086,6 +1273,18 @@ function buildXLSX(d,m,y){
   const advRows=[['Date','Worker','Amount','Mode','Notes'],...(d.advances||[]).map(a=>[a.date,a.worker,a.amount,a.mode,a.notes])];
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(advRows),'Advances');
 
+  // Vendor Payment Log sheet
+  const vpayRows=[['Date','Vendor','Amount Paid','Mode','Reference/Note'],...(d.vendorPayLog||[]).map(p=>[p.date,p.vendor,p.amount,p.mode,p.ref])];
+  // Outstanding summary
+  vpayRows.push([],[' OUTSTANDING SUMMARY'],['Vendor','Opening Bal','Purchases','Paid','Outstanding']);
+  VENDORS.forEach(v=>{
+    const ob=+(d.vendorOpening[v]||0);
+    const pur=Object.values(d.vendorPurchases||{}).reduce((a,r)=>a+(+r[v]||0),0);
+    const paid=(d.vendorPayLog||[]).filter(p=>p.vendor===v).reduce((a,p)=>a+(+p.amount||0),0);
+    if(ob||pur||paid) vpayRows.push([v,ob,pur,paid,ob+pur-paid]);
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(vpayRows),'Vendor Payments');
+
   // Sheet 6: MIS Report
   const gross=Object.values(d.sales||{}).reduce((a,r)=>a+Object.values(r).reduce((b,v)=>b+(+v||0),0),0);
   const commTotal=keys.reduce((a,k)=>{
@@ -1121,8 +1320,9 @@ function buildXLSX(d,m,y){
     ['Net Sales (after commission)',netSales],
     ['(-) Vendor Purchases',-totalVendor],
     ['(-) Cash Expenses',-totalExp],
-    ['(-) Staff Payroll (net)',-totalPayroll],
-    ['NET PROFIT / (LOSS)',netPL],
+    ['(-) Gross Salary & OT Payable',-totalPayroll],
+    ['(-) Advances Paid to Staff',-((d.advances||[]).reduce((a,e)=>a+(+e.amount||0),0))],
+    ['NET PROFIT / (LOSS)',netPL-(d.advances||[]).reduce((a,e)=>a+(+e.amount||0),0)],
   ];
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(misRows),'MIS Report');
 
@@ -1133,12 +1333,17 @@ function buildXLSX(d,m,y){
 // ── UI HELPERS ────────────────────────────────────────────────────────────────
 function showTab(name){
   document.querySelectorAll('.nav-tab').forEach((t,i)=>{
-    const tabs=['sales','expenses','vendors','attendance','advances','reports','archive'];
+    const tabs=['sales','expenses','vendors','vendor-payments','attendance','advances','reports','archive','vendor-setup'];
     t.classList.toggle('active',tabs[i]===name);
   });
   document.querySelectorAll('#main .screen').forEach(s=>s.classList.remove('active'));
   const t=document.getElementById('tab-'+name);
-  if(t){ t.classList.add('active'); if(name==='reports') renderReports(); if(name==='archive') renderArchive(); }
+  if(t){ t.classList.add('active');
+    if(name==='reports') renderReports();
+    if(name==='archive') renderArchive();
+    if(name==='vendor-payments') renderVendorPayments();
+    if(name==='vendor-setup') renderVendorSetup();
+  }
 }
 function showScreen(id){
   // This function is now only used for sign-out; normal navigation uses showTab()
