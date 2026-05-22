@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!-- 
+  ════════════════════════════════════════════════════════
+  RESTAURANT MIS — Kakeda Hotel, Jail Road
+  ════════════════════════════════════════════════════════
+  GitHub Repo  : https://github.com/Nirmalendu11/kakedaHotel_JailRd_Project
+  Live URL     : https://nirmalendu11.github.io/kakedaHotel_JailRd_Project/
+  Google Sheet : https://docs.google.com/spreadsheets/d/1ZNxdqAsdjBmdiB6qITHWejVGcObkRRSEIjwAxqWAEDA
+  OAuth Client : 18218575360-spri8886hr7g406r1q6o1l5japnlk0ip.apps.googleusercontent.com
+
+  Google Cloud Console setup (one-time):
+  → Authorized JavaScript Origins:
+      https://nirmalendu11.github.io
+  → Authorized Redirect URIs:
+      https://nirmalendu11.github.io/kakedaHotel_JailRd_Project/
+  ════════════════════════════════════════════════════════
+-->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kakeda Hotel MIS — Jail Road</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* ── FONTS ── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
+
+:root {
+  --bg: #0f1117;
+  --surface: #181c27;
+  --surface2: #1e2333;
+  --surface3: #252b3d;
+  --border: #2e3650;
+  --border2: #3a4260;
+  --accent: #f5a623;
+  --accent2: #e8751a;
+  --green: #2ecc8a;
+  --red: #e05252;
+  --blue: #4e8ff5;
+  --purple: #9b7fe8;
+  --text: #e8ecf4;
+  --text2: #9aa3bb;
+  --text3: #5c6480;
+  --inp-bg: #141824;
+  --inp-border: #2e3650;
+  --radius: 10px;
+  --font-display: 'DM Serif Display', serif;
+  --font-body: 'DM Sans', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: var(--font-body); background: var(--bg); color: var(--text); font-size: 14px; }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ── LAYOUT ── */
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+/* ── TOP BAR ── */
+#topbar {
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 20px; height: 52px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#topbar .logo { font-family: var(--font-display); font-size: 20px; color: var(--accent); letter-spacing: 0.3px; white-space: nowrap; }
+#topbar .logo span { color: var(--text2); font-size: 13px; font-family: var(--font-body); margin-left: 8px; }
+#topbar .spacer { flex: 1; }
+#month-badge {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface3); border: 1px solid var(--border); border-radius: 20px;
+  padding: 4px 12px; cursor: pointer; transition: border-color .2s;
+}
+#month-badge:hover { border-color: var(--accent); }
+#month-badge .label { font-size: 12px; color: var(--text2); }
+#month-badge .val { font-size: 13px; font-weight: 600; color: var(--text); }
+#month-badge .arrow { color: var(--text3); font-size: 11px; }
+#save-btn, #export-btn, #user-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border);
+  background: transparent; color: var(--text2); font-family: var(--font-body);
+  font-size: 12px; cursor: pointer; transition: all .2s; white-space: nowrap;
+}
+#save-btn { border-color: var(--green); color: var(--green); }
+#save-btn:hover { background: rgba(46,204,138,.12); }
+#export-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(245,166,35,.08); }
+#user-btn { gap: 8px; }
+#user-btn img { width: 22px; height: 22px; border-radius: 50%; }
+.save-status { font-size: 11px; color: var(--text3); white-space: nowrap; }
+
+/* ── TAB NAV ── */
+#nav {
+  display: flex; gap: 2px; padding: 0 20px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  flex-shrink: 0; overflow-x: auto;
+}
+.nav-tab {
+  padding: 10px 16px; font-size: 12px; font-weight: 500; color: var(--text3);
+  cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;
+  transition: color .2s, border-color .2s;
+}
+.nav-tab:hover { color: var(--text2); }
+.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── MAIN CONTENT ── */
+#main { flex: 1; overflow-y: auto; padding: 24px 20px; }
+
+/* ── SCREENS ── */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ── AUTH SCREEN ── */
+#auth-screen {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: calc(100vh - 52px); gap: 32px;
+}
+.auth-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+  padding: 48px; max-width: 400px; width: 100%; text-align: center;
+}
+.auth-card h1 { font-family: var(--font-display); font-size: 36px; color: var(--accent); margin-bottom: 6px; }
+.auth-card p { color: var(--text2); font-size: 14px; margin-bottom: 32px; line-height: 1.6; }
+.google-btn {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  width: 100%; padding: 14px; border-radius: 12px;
+  background: var(--surface3); border: 1px solid var(--border2);
+  color: var(--text); font-family: var(--font-body); font-size: 14px; font-weight: 500;
+  cursor: pointer; transition: all .2s;
+}
+.google-btn:hover { border-color: var(--accent); background: var(--surface2); }
+.google-btn svg { width: 20px; height: 20px; }
+
+/* ── MONTH PICKER MODAL ── */
+#modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7);
+  z-index: 100; align-items: center; justify-content: center;
+}
+#modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 28px; min-width: 420px; max-width: 560px; width: 90%;
+  max-height: 80vh; overflow-y: auto;
+}
+.modal h2 { font-family: var(--font-display); font-size: 22px; margin-bottom: 20px; }
+.modal-row { display: flex; gap: 12px; margin-bottom: 16px; }
+.month-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 20px; }
+.month-chip {
+  padding: 8px; text-align: center; border-radius: 8px; border: 1px solid var(--border);
+  cursor: pointer; font-size: 12px; font-weight: 500; color: var(--text2); transition: all .2s;
+}
+.month-chip:hover { border-color: var(--accent); color: var(--accent); }
+.month-chip.active { background: var(--accent); border-color: var(--accent); color: #000; }
+.month-chip.has-data { border-color: var(--green); color: var(--green); }
+.month-chip.has-data.active { background: var(--green); color: #000; }
+.year-inp { background: var(--inp-bg); border: 1px solid var(--inp-border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-family: var(--font-body); font-size: 14px; width: 100px; text-align: center; }
+.year-inp:focus { outline: none; border-color: var(--accent); }
+.archive-list { display: flex; flex-direction: column; gap: 8px; }
+.archive-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surface2); cursor: pointer; transition: border-color .2s;
+}
+.archive-item:hover { border-color: var(--accent); }
+.archive-item .month-name { font-weight: 600; flex: 1; }
+.archive-item .meta { font-size: 11px; color: var(--text3); }
+.archive-item .dl-btn { font-size: 11px; color: var(--accent); cursor: pointer; padding: 4px 10px; border: 1px solid var(--accent); border-radius: 6px; background: transparent; font-family: var(--font-body); }
+.archive-item .dl-btn:hover { background: rgba(245,166,35,.12); }
+.modal-btn {
+  width: 100%; padding: 12px; border-radius: 10px;
+  background: var(--accent); border: none; color: #000;
+  font-family: var(--font-body); font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: background .2s;
+}
+.modal-btn:hover { background: var(--accent2); }
+.modal-close { float: right; background: none; border: none; color: var(--text3); font-size: 20px; cursor: pointer; margin-top: -4px; }
+
+/* ── SECTION HEADERS ── */
+.section-hdr {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 16px; margin-top: 8px;
+}
+.section-hdr h2 { font-family: var(--font-display); font-size: 22px; }
+.section-hdr .pill {
+  font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px;
+  background: rgba(245,166,35,.15); color: var(--accent); border: 1px solid rgba(245,166,35,.3);
+}
+
+/* ── TABLES ── */
+.tbl-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 28px; }
+table { border-collapse: collapse; width: 100%; min-width: 600px; }
+thead tr { background: var(--surface3); }
+th { padding: 10px 10px; font-size: 11px; font-weight: 600; color: var(--text2); text-align: center; border-bottom: 1px solid var(--border); white-space: nowrap; letter-spacing: .4px; text-transform: uppercase; }
+th.left { text-align: left; }
+td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: center; font-size: 13px; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(255,255,255,.02); }
+td.date-cell { color: var(--text2); font-size: 12px; font-weight: 500; background: var(--surface2); white-space: nowrap; }
+td.total-cell { font-weight: 600; color: var(--green); background: rgba(46,204,138,.05); }
+tr.total-row td { background: var(--surface3); font-weight: 600; color: var(--accent); border-top: 1px solid var(--border2); }
+
+/* ── INPUTS ── */
+.cell-inp {
+  background: transparent; border: none; color: var(--text); font-family: var(--font-body);
+  font-size: 13px; text-align: center; width: 100%; min-width: 70px;
+  padding: 2px 4px; border-radius: 4px; transition: background .15s;
+}
+.cell-inp:focus { outline: none; background: rgba(78,143,245,.15); }
+.cell-inp.att { min-width: 40px; text-transform: uppercase; }
+.cell-inp.att:focus { background: rgba(155,127,232,.2); }
+
+/* ── FORM ROWS ── */
+.form-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(200px,1fr)); gap: 12px; margin-bottom: 20px; }
+.form-field { display: flex; flex-direction: column; gap: 5px; }
+.form-field label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; }
+.form-field input, .form-field select {
+  background: var(--inp-bg); border: 1px solid var(--inp-border); border-radius: 8px;
+  padding: 9px 12px; color: var(--text); font-family: var(--font-body); font-size: 13px;
+  transition: border-color .2s;
+}
+.form-field input:focus, .form-field select:focus { outline: none; border-color: var(--accent); }
+.form-field select option { background: var(--surface2); }
+
+/* ── EXPENSE / ADVANCE ROWS ── */
+.entry-table { width: 100%; }
+.entry-table td { padding: 4px 6px; }
+.entry-table input {
+  width: 100%; background: var(--inp-bg); border: 1px solid var(--inp-border);
+  border-radius: 6px; padding: 6px 10px; color: var(--text);
+  font-family: var(--font-body); font-size: 12px;
+}
+.entry-table input:focus { outline: none; border-color: var(--accent); }
+.add-row-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 8px; border: 1px dashed var(--border2);
+  background: transparent; color: var(--text3); font-family: var(--font-body);
+  font-size: 12px; cursor: pointer; transition: all .2s; margin-top: 8px;
+}
+.add-row-btn:hover { border-color: var(--accent); color: var(--accent); }
+.del-btn { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 16px; padding: 0 4px; transition: color .2s; }
+.del-btn:hover { color: var(--red); }
+
+/* ── STAT CARDS ── */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(180px,1fr)); gap: 12px; margin-bottom: 28px; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px; display: flex; flex-direction: column; gap: 6px;
+}
+.stat-card .lbl { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+.stat-card .val { font-size: 22px; font-weight: 600; color: var(--text); }
+.stat-card .val.green { color: var(--green); }
+.stat-card .val.red { color: var(--red); }
+.stat-card .val.amber { color: var(--accent); }
+.stat-card .sub { font-size: 11px; color: var(--text3); }
+
+/* ── WORKER SETUP ── */
+.worker-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.worker-row:last-child { border-bottom: none; }
+.worker-num { width: 24px; text-align: center; font-size: 12px; color: var(--text3); flex-shrink: 0; }
+.worker-row input {
+  background: var(--inp-bg); border: 1px solid var(--inp-border); border-radius: 7px;
+  padding: 7px 10px; color: var(--text); font-family: var(--font-body); font-size: 12px; flex: 1;
+}
+.worker-row input:focus { outline: none; border-color: var(--purple); }
+.worker-row .sal-inp { max-width: 110px; }
+.worker-row .ot-inp { max-width: 80px; }
+
+/* ── VENDOR OPENING ── */
+.vendor-ob-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(220px,1fr)); gap: 10px; margin-bottom: 20px; }
+.vendor-ob-item { display: flex; flex-direction: column; gap: 4px; }
+.vendor-ob-item label { font-size: 11px; color: var(--text3); font-weight: 500; }
+.vendor-ob-item input {
+  background: var(--inp-bg); border: 1px solid var(--inp-border); border-radius: 7px;
+  padding: 7px 10px; color: var(--text); font-family: var(--font-body); font-size: 12px;
+}
+.vendor-ob-item input:focus { outline: none; border-color: var(--accent); }
+
+/* ── REPORT STYLES ── */
+.report-block { margin-bottom: 32px; }
+.report-block h3 { font-family: var(--font-display); font-size: 18px; margin-bottom: 12px; color: var(--text2); }
+.pl-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-radius: 8px; margin-bottom: 4px; }
+.pl-row .pl-lbl { font-size: 13px; }
+.pl-row .pl-val { font-size: 14px; font-weight: 600; }
+.pl-row.income { background: rgba(46,204,138,.08); }
+.pl-row.expense { background: rgba(224,82,82,.06); }
+.pl-row.net { background: var(--surface3); border: 1px solid var(--border2); margin-top: 8px; }
+.pl-row.net .pl-lbl { font-weight: 600; font-size: 14px; }
+.pl-row.net .pl-val { font-size: 18px; }
+
+/* ── ARCHIVE SCREEN ── */
+.archive-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(260px,1fr)); gap: 14px; }
+.archive-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 20px; display: flex; flex-direction: column; gap: 12px; transition: border-color .2s;
+}
+.archive-card:hover { border-color: var(--accent); }
+.archive-card .ac-month { font-family: var(--font-display); font-size: 20px; }
+.archive-card .ac-meta { font-size: 11px; color: var(--text3); }
+.archive-card .ac-stats { display: flex; gap: 16px; }
+.archive-card .ac-stat { font-size: 12px; color: var(--text2); }
+.archive-card .ac-stat span { display: block; font-size: 15px; font-weight: 600; color: var(--text); }
+.ac-btn {
+  padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: transparent;
+  color: var(--text2); font-family: var(--font-body); font-size: 12px; cursor: pointer; transition: all .2s; text-align: center;
+}
+.ac-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(245,166,35,.08); }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 200;
+  background: var(--surface3); border: 1px solid var(--border2); border-radius: 10px;
+  padding: 12px 20px; font-size: 13px; color: var(--text);
+  transform: translateY(80px); opacity: 0; transition: all .3s;
+  display: flex; align-items: center; gap: 10px;
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast.success { border-color: var(--green); }
+#toast.error { border-color: var(--red); }
+
+/* ── LOADING ── */
+#loading { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 300; flex-direction: column; gap: 16px; }
+.spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div style="color:var(--text3);font-size:13px">Loading…</div>
+</div>
+
+<div id="app" style="display:none">
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div class="logo">Kakeda Hotel <span>Jail Road · MIS</span></div>
+    <div class="spacer"></div>
+    <div id="month-badge" onclick="openMonthPicker()">
+      <span class="label">Month</span>
+      <span class="val" id="cur-month-label">—</span>
+      <span class="arrow">▾</span>
+    </div>
+    <button id="save-btn" onclick="saveData()">💾 Save</button>
+    <button id="export-btn" onclick="exportXLSX()">⬇ Export Excel</button>
+    <button id="user-btn" onclick="signOut()">
+      <img id="user-avatar" src="" alt="">
+      <span id="user-name" style="font-size:12px;color:var(--text2)"></span>
+      <span style="font-size:10px;color:var(--text3)">Sign out</span>
+    </button>
+    <span class="save-status" id="save-status"></span>
+  </div>
+
+  <!-- NAV -->
+  <div id="nav">
+    <div class="nav-tab active" onclick="showTab('sales')">📊 Sales</div>
+    <div class="nav-tab" onclick="showTab('expenses')">💸 Cash Expenses</div>
+    <div class="nav-tab" onclick="showTab('vendors')">🛒 Vendor Purchases</div>
+    <div class="nav-tab" onclick="showTab('attendance')">👥 Attendance</div>
+    <div class="nav-tab" onclick="showTab('advances')">💰 Advances</div>
+    <div class="nav-tab" onclick="showTab('reports')">📋 Reports</div>
+    <div class="nav-tab" onclick="showTab('archive')">🗂 Archive</div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+
+    <!-- AUTH -->
+    <div id="auth-screen" class="screen active">
+      <div class="auth-card">
+        <h1>MIS</h1>
+        <p>Kakeda Hotel — Jail Road<br>Daily Management Information System</p>
+        <button class="google-btn" onclick="signIn()">
+          <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Sign in with Google
+        </button>
+      </div>
+    </div>
+
+    <!-- SALES TAB -->
+    <div id="tab-sales" class="screen">
+      <div class="section-hdr"><h2>Daily Sales</h2><span class="pill" id="sales-month-pill"></span></div>
+      <div class="tbl-wrap"><table id="sales-table"></table></div>
+    </div>
+
+    <!-- CASH EXPENSES -->
+    <div id="tab-expenses" class="screen">
+      <div class="section-hdr"><h2>Cash Expenses</h2><span class="pill">Daily entries</span></div>
+      <div class="tbl-wrap">
+        <table class="entry-table" id="exp-table">
+          <thead><tr>
+            <th class="left">Date</th><th class="left">Category / Description</th>
+            <th class="left">Vendor / Payee</th><th>Amount (₹)</th>
+            <th class="left">Mode</th><th class="left">Notes</th><th></th>
+          </tr></thead>
+          <tbody id="exp-body"></tbody>
+        </table>
+      </div>
+      <button class="add-row-btn" onclick="addExpRow()">＋ Add Row</button>
+    </div>
+
+    <!-- VENDOR PURCHASES -->
+    <div id="tab-vendors" class="screen">
+      <div class="section-hdr"><h2>Vendor Purchases</h2><span class="pill">Daily entries</span></div>
+      <div style="margin-bottom:16px">
+        <div class="section-hdr" style="margin-bottom:8px"><h2 style="font-size:16px;color:var(--text2)">Opening Outstanding Balances</h2></div>
+        <div class="vendor-ob-grid" id="vendor-ob-grid"></div>
+      </div>
+      <div class="tbl-wrap"><table id="vendor-table"></table></div>
+    </div>
+
+    <!-- ATTENDANCE -->
+    <div id="tab-attendance" class="screen">
+      <div class="section-hdr"><h2>Attendance</h2><span class="pill">P / P2 / P4 / OFF</span></div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px">
+        <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Worker Setup (salary & OT rate — confidential)</div>
+        <div id="worker-list"></div>
+        <button class="add-row-btn" onclick="addWorker()" style="margin-top:12px">＋ Add Worker</button>
+      </div>
+      <div class="tbl-wrap"><table id="att-table"></table></div>
+    </div>
+
+    <!-- ADVANCES -->
+    <div id="tab-advances" class="screen">
+      <div class="section-hdr"><h2>Staff Advances</h2><span class="pill">Daily entries</span></div>
+      <div class="tbl-wrap">
+        <table class="entry-table" id="adv-table">
+          <thead><tr>
+            <th class="left">Date</th><th class="left">Worker Name</th>
+            <th>Amount (₹)</th><th class="left">Mode</th><th class="left">Notes</th><th></th>
+          </tr></thead>
+          <tbody id="adv-body"></tbody>
+        </table>
+      </div>
+      <button class="add-row-btn" onclick="addAdvRow()">＋ Add Row</button>
+    </div>
+
+    <!-- REPORTS -->
+    <div id="tab-reports" class="screen">
+      <div class="section-hdr"><h2>Monthly Reports</h2><span class="pill" id="rpt-pill"></span></div>
+      <div id="reports-content"></div>
+    </div>
+
+    <!-- ARCHIVE -->
+    <div id="tab-archive" class="screen">
+      <div class="section-hdr"><h2>Month Archive</h2><span class="pill">All saved months</span></div>
+      <div class="archive-grid" id="archive-grid"></div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- MONTH PICKER MODAL -->
+<div id="modal-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h2>Select Month</h2>
+    <div class="modal-row" style="align-items:center;gap:12px">
+      <span style="font-size:13px;color:var(--text2)">Year:</span>
+      <input type="number" class="year-inp" id="modal-year" value="2026" min="2020" max="2035" oninput="selectedModal.year=+this.value;renderMonthGrid()">
+    </div>
+    <div class="month-grid" id="month-grid"></div>
+    <button class="modal-btn" onclick="confirmMonth()">Open / Create Month</button>
+    <div style="margin-top:24px;border-top:1px solid var(--border);padding-top:20px">
+      <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Saved Months</div>
+      <div class="archive-list" id="modal-archive-list"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+const CLIENT_ID   = '18218575360-spri8886hr7g406r1q6o1l5japnlk0ip.apps.googleusercontent.com';
+const SHEET_ID    = '1ZNxdqAsdjBmdiB6qITHWejVGcObkRRSEIjwAxqWAEDA';
+const SCOPES      = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
+const DISCOVERY   = ['https://sheets.googleapis.com/$discovery/rest?version=v4'];
+
+const MONTHS      = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAYS_MAP    = [31,28,31,30,31,30,31,31,30,31,30,31];
+const VENDORS     = ['Milk','BREAKFAST - Neeraj Chaurasia','Rumali Roti','Royal Meat','Silver Foil','Rewari','Spices-ECOM','Coal','Global Packaging','Singh Dry Fruit','Vegetables - Rajesh','Dairy','Chicken - Akram','Sadik Trading','Packing Material - Montu','DeliverIT','Gas Cylinder','Other'];
+const SALES_CATS  = ['Zomato','Swiggy','Toing','Card','UPI','Cash','Any Other'];
+const ONLINE_CATS = ['Zomato','Swiggy','Toing']; // commission-bearing
+
+// ── STATE ───────────────────────────────────────────────────────────────────
+let gapi_ready = false, tokenClient = null, accessToken = null;
+let curMonth = null, curYear = null;
+let data = null;       // current month's data object
+let savedMonths = [];  // [{month,year,sheetTab,savedAt,grossSales}]
+let selectedModal = {month: new Date().getMonth()+1, year: new Date().getFullYear()};
+
+function daysInMonth(m,y){ return m===2&&y%4===0?29:DAYS_MAP[m-1]; }
+function sheetTab(m,y){ return `${MONTHS[m-1]}_${y}`; }
+function monthLabel(m,y){ return `${MONTHS[m-1]} ${y}`; }
+
+// ── BLANK DATA ───────────────────────────────────────────────────────────────
+function blankData(m,y,prevWorkers){
+  const d=daysInMonth(m,y);
+  const sales={}, vend={};
+  for(let i=1;i<=d;i++){
+    sales[i]={zomato:0,swiggy:0,toing:0,card:0,upi:0,cash:0,any_other:0};
+    vend[i]={};
+    VENDORS.forEach(v=>vend[i][v]=0);
+  }
+  return {
+    month:m, year:y,
+    openingCash:0,
+    commRates:{zomato:3,swiggy:2.5,toing:0,card:0,upi:0,cash:0,any_other:0},
+    sales,
+    expenses:[],
+    workers: prevWorkers||[],
+    attendance:{},
+    advances:[],
+    vendorOpening: Object.fromEntries(VENDORS.map(v=>[v,0])),
+    vendorPurchases: vend,
+    vendorPayments: Object.fromEntries(VENDORS.map(v=>[v,{}])),
+    cashVendorPmts: {},
+  };
+}
+
+// ── GOOGLE AUTH ──────────────────────────────────────────────────────────────
+function loadGapi(){
+  return new Promise(res=>{
+    const s=document.createElement('script');
+    s.src='https://apis.google.com/js/api.js';
+    s.onload=()=>{ gapi.load('client',async()=>{ await gapi.client.init({discoveryDocs:DISCOVERY}); gapi_ready=true; res(); }); };
+    document.head.appendChild(s);
+  });
+}
+function loadGsi(){
+  return new Promise(res=>{
+    const s=document.createElement('script');
+    s.src='https://accounts.google.com/gsi/client';
+    s.onload=res;
+    document.head.appendChild(s);
+  });
+}
+async function init(){
+  await Promise.all([loadGapi(),loadGsi()]);
+  tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:CLIENT_ID, scope:SCOPES,
+    callback:async(resp)=>{
+      if(resp.error){ toast('Auth error: '+resp.error,'error'); return; }
+      accessToken=resp.access_token;
+      gapi.client.setToken({access_token:accessToken});
+      await onSignedIn();
+    }
+  });
+  document.getElementById('loading').style.display='none';
+  document.getElementById('app').style.display='flex';
+}
+function signIn(){ tokenClient.requestAccessToken({prompt:'consent'}); }
+function signOut(){
+  google.accounts.oauth2.revoke(accessToken,()=>{});
+  accessToken=null; data=null;
+  showScreen('auth-screen');
+  toast('Signed out');
+}
+async function onSignedIn(){
+  // get user info
+  try{
+    const r=await fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+accessToken}});
+    const u=await r.json();
+    document.getElementById('user-name').textContent=u.given_name||u.email;
+    document.getElementById('user-avatar').src=u.picture||'';
+  }catch(e){}
+  showScreen('');
+  document.getElementById('topbar').style.display='flex';
+  document.getElementById('nav').style.display='flex';
+  // ensure INDEX tab exists
+  await ensureIndex();
+  await loadIndex();
+  // default: current month
+  const now=new Date();
+  await openMonth(now.getMonth()+1, now.getFullYear());
+}
+
+// ── SHEETS API ───────────────────────────────────────────────────────────────
+async function sheetsGet(range){
+  const r=await gapi.client.sheets.spreadsheets.values.get({spreadsheetId:SHEET_ID,range});
+  return r.result.values||[];
+}
+async function sheetsUpdate(range,values){
+  await gapi.client.sheets.spreadsheets.values.update({
+    spreadsheetId:SHEET_ID, range, valueInputOption:'RAW', resource:{values}
+  });
+}
+async function sheetsAppend(range,values){
+  await gapi.client.sheets.spreadsheets.values.append({
+    spreadsheetId:SHEET_ID, range, valueInputOption:'RAW',
+    insertDataOption:'INSERT_ROWS', resource:{values}
+  });
+}
+async function ensureTab(name){
+  const meta=await gapi.client.sheets.spreadsheets.get({spreadsheetId:SHEET_ID});
+  const sheets=meta.result.sheets.map(s=>s.properties.title);
+  if(!sheets.includes(name)){
+    await gapi.client.sheets.spreadsheets.batchUpdate({
+      spreadsheetId:SHEET_ID,
+      resource:{requests:[{addSheet:{properties:{title:name}}}]}
+    });
+  }
+}
+async function ensureIndex(){
+  await ensureTab('INDEX');
+  const vals=await sheetsGet('INDEX!A1');
+  if(!vals.length) await sheetsUpdate('INDEX!A1:D1',[['Month','Year','SheetTab','SavedAt']]);
+}
+async function loadIndex(){
+  const rows=await sheetsGet('INDEX!A2:E100');
+  savedMonths=rows.map(r=>({month:+r[0],year:+r[1],tab:r[2],savedAt:r[3]||'',grossSales:r[4]||0}));
+  renderArchive();
+}
+async function saveIndex(){
+  // rewrite full index
+  const vals=[['Month','Year','SheetTab','SavedAt','GrossSales'],...savedMonths.map(s=>[s.month,s.year,s.tab,s.savedAt,s.grossSales])];
+  await sheetsUpdate('INDEX!A1:E'+(vals.length), vals);
+}
+
+// ── OPEN / SAVE MONTH ────────────────────────────────────────────────────────
+async function openMonth(m,y){
+  loading(true);
+  curMonth=m; curYear=y;
+  document.getElementById('cur-month-label').textContent=monthLabel(m,y);
+  document.getElementById('sales-month-pill').textContent=monthLabel(m,y);
+  document.getElementById('rpt-pill').textContent=monthLabel(m,y);
+  const tab=sheetTab(m,y);
+  const existing=savedMonths.find(s=>s.month===m&&s.year===y);
+  if(existing){
+    const rows=await sheetsGet(`${tab}!A1`);
+    if(rows.length&&rows[0][0]){ try{ data=JSON.parse(rows[0][0]); }catch(e){ data=blankData(m,y); } }
+    else { data=blankData(m,y); }
+  } else {
+    // carry workers from most recent saved month
+    let prevWorkers=[];
+    if(savedMonths.length){ const last=savedMonths[savedMonths.length-1]; try{ const rows=await sheetsGet(`${last.tab}!A1`); if(rows.length&&rows[0][0]){const d2=JSON.parse(rows[0][0]); prevWorkers=d2.workers||[];} }catch(e){} }
+    data=blankData(m,y,prevWorkers);
+  }
+  loading(false);
+  showTab('sales');
+  renderAll();
+}
+
+async function saveData(){
+  if(!data){ toast('No data to save','error'); return; }
+  loading(true);
+  const tab=sheetTab(curMonth,curYear);
+  await ensureTab(tab);
+  await sheetsUpdate(`${tab}!A1`,[[JSON.stringify(data)]]);
+  // update index
+  const idx=savedMonths.findIndex(s=>s.month===curMonth&&s.year===curYear);
+  const entry={month:curMonth,year:curYear,tab,savedAt:new Date().toLocaleDateString('en-IN'),grossSales:calcGrossSales()};
+  if(idx>=0) savedMonths[idx]=entry; else savedMonths.push(entry);
+  savedMonths.sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month);
+  await saveIndex();
+  renderArchive();
+  loading(false);
+  toast('Saved to Google Drive ✓','success');
+  document.getElementById('save-status').textContent='Saved '+new Date().toLocaleTimeString();
+}
+
+// ── RENDER ALL ───────────────────────────────────────────────────────────────
+function renderAll(){
+  renderSales();
+  renderExpenses();
+  renderVendors();
+  renderAttendance();
+  renderAdvances();
+  renderReports();
+  renderArchive();
+}
+
+// ── SALES TABLE ──────────────────────────────────────────────────────────────
+function renderSales(){
+  const d=daysInMonth(curMonth,curYear);
+  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  let html=`<thead><tr><th class="left">Date</th><th class="left">Day</th>`;
+  SALES_CATS.forEach(c=>html+=`<th>${c}</th>`);
+  html+=`<th>Total</th></tr></thead><tbody>`;
+  for(let i=1;i<=d;i++){
+    const dt=new Date(curYear,curMonth-1,i);
+    const row=data.sales[i]||{};
+    const tot=SALES_CATS.reduce((a,c)=>a+(+row[c.toLowerCase().replace(' ','_')]||0),0);
+    html+=`<tr><td class="date-cell">${String(i).padStart(2,'0')}-${MONTHS[curMonth-1]}</td><td class="date-cell">${days[dt.getDay()]}</td>`;
+    ['zomato','swiggy','toing','card','upi','cash','any_other'].forEach(k=>{
+      html+=`<td><input class="cell-inp" type="number" min="0" value="${row[k]||''}" placeholder="—" onchange="setSales(${i},'${k}',this.value)"></td>`;
+    });
+    html+=`<td class="total-cell">${tot?tot.toLocaleString('en-IN'):'—'}</td></tr>`;
+  }
+  // totals
+  const tots={};
+  ['zomato','swiggy','toing','card','upi','cash','any_other'].forEach(k=>{
+    tots[k]=Object.values(data.sales).reduce((a,r)=>a+(+r[k]||0),0);
+  });
+  const gt=Object.values(tots).reduce((a,b)=>a+b,0);
+  html+=`<tr class="total-row"><td colspan="2">Monthly Total</td>`;
+  ['zomato','swiggy','toing','card','upi','cash','any_other'].forEach(k=>html+=`<td>₹${tots[k].toLocaleString('en-IN')}</td>`);
+  html+=`<td>₹${gt.toLocaleString('en-IN')}</td></tr></tbody>`;
+  document.getElementById('sales-table').innerHTML=html;
+}
+function setSales(day,key,val){ if(!data.sales[day]) data.sales[day]={}; data.sales[day][key]=+val||0; updateSalesRowTotal(day); }
+function updateSalesRowTotal(day){ /* totals are computed on next render, light enough */ }
+
+// ── EXPENSES ──────────────────────────────────────────────────────────────────
+function renderExpenses(){
+  const tbody=document.getElementById('exp-body');
+  tbody.innerHTML='';
+  (data.expenses||[]).forEach((e,i)=>{ tbody.appendChild(expRow(e,i)); });
+}
+function expRow(e,i){
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td><input value="${e.date||''}" placeholder="DD-Mon" onchange="data.expenses[${i}].date=this.value"></td>
+<td><input value="${e.cat||''}" placeholder="Description" onchange="data.expenses[${i}].cat=this.value"></td>
+<td><input value="${e.vendor||''}" placeholder="Vendor" onchange="data.expenses[${i}].vendor=this.value"></td>
+<td><input type="number" value="${e.amount||''}" placeholder="0" onchange="data.expenses[${i}].amount=+this.value"></td>
+<td><input value="${e.mode||'Cash'}" placeholder="Cash/UPI" onchange="data.expenses[${i}].mode=this.value"></td>
+<td><input value="${e.notes||''}" placeholder="Notes" onchange="data.expenses[${i}].notes=this.value"></td>
+<td><button class="del-btn" onclick="delExpRow(${i})">✕</button></td>`;
+  return tr;
+}
+function addExpRow(){ data.expenses.push({date:'',cat:'',vendor:'',amount:0,mode:'Cash',notes:''}); renderExpenses(); }
+function delExpRow(i){ data.expenses.splice(i,1); renderExpenses(); }
+
+// ── VENDORS ──────────────────────────────────────────────────────────────────
+function renderVendors(){
+  // Opening balances
+  const og=document.getElementById('vendor-ob-grid');
+  og.innerHTML='';
+  VENDORS.forEach(v=>{
+    const d=document.createElement('div'); d.className='vendor-ob-item';
+    d.innerHTML=`<label>${v}</label><input type="number" value="${data.vendorOpening[v]||0}" onchange="data.vendorOpening['${v}']=+this.value">`;
+    og.appendChild(d);
+  });
+  // Daily table
+  const days=daysInMonth(curMonth,curYear);
+  const dayNames=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  let html=`<thead><tr><th class="left">Date</th><th class="left">Day</th>`;
+  VENDORS.forEach(v=>html+=`<th style="font-size:10px">${v.split(' ')[0]}</th>`);
+  html+=`<th>Total</th></tr></thead><tbody>`;
+  for(let i=1;i<=days;i++){
+    const dt=new Date(curYear,curMonth-1,i);
+    const row=data.vendorPurchases[i]||{};
+    const tot=VENDORS.reduce((a,v)=>a+(+row[v]||0),0);
+    html+=`<tr><td class="date-cell">${String(i).padStart(2,'0')}-${MONTHS[curMonth-1]}</td><td class="date-cell">${dayNames[dt.getDay()]}</td>`;
+    VENDORS.forEach(v=>{
+      html+=`<td><input class="cell-inp" type="number" min="0" value="${row[v]||''}" placeholder="—" onchange="setVendor(${i},'${v.replace(/'/g,"\\'")}',this.value)"></td>`;
+    });
+    html+=`<td class="total-cell">${tot?tot.toLocaleString('en-IN'):'—'}</td></tr>`;
+  }
+  // totals
+  html+=`<tr class="total-row"><td colspan="2">Monthly Total</td>`;
+  VENDORS.forEach(v=>{
+    const t=Object.values(data.vendorPurchases).reduce((a,r)=>a+(+r[v]||0),0);
+    html+=`<td>${t?'₹'+t.toLocaleString('en-IN'):'—'}</td>`;
+  });
+  const gt=VENDORS.reduce((a,v)=>a+Object.values(data.vendorPurchases).reduce((b,r)=>b+(+r[v]||0),0),0);
+  html+=`<td>₹${gt.toLocaleString('en-IN')}</td></tr></tbody>`;
+  document.getElementById('vendor-table').innerHTML=html;
+}
+function setVendor(day,vendor,val){ if(!data.vendorPurchases[day]) data.vendorPurchases[day]={}; data.vendorPurchases[day][vendor]=+val||0; }
+
+// ── ATTENDANCE ───────────────────────────────────────────────────────────────
+function renderAttendance(){
+  // Worker list
+  const wl=document.getElementById('worker-list');
+  wl.innerHTML='';
+  (data.workers||[]).forEach((w,i)=>{
+    const div=document.createElement('div'); div.className='worker-row';
+    div.innerHTML=`<span class="worker-num">${i+1}</span>
+<input value="${w.name||''}" placeholder="Worker Name" onchange="data.workers[${i}].name=this.value;renderAttTable()">
+<input value="${w.desig||''}" placeholder="Designation" onchange="data.workers[${i}].desig=this.value">
+<input class="sal-inp" type="number" value="${w.salary||''}" placeholder="Salary ₹" onchange="data.workers[${i}].salary=+this.value">
+<input class="ot-inp" type="number" value="${w.otRate||100}" placeholder="OT ₹/hr" onchange="data.workers[${i}].otRate=+this.value">
+<button class="del-btn" onclick="delWorker(${i})">✕</button>`;
+    wl.appendChild(div);
+  });
+  renderAttTable();
+}
+function addWorker(){ data.workers.push({name:'',desig:'',salary:0,otRate:100}); renderAttendance(); }
+function delWorker(i){ data.workers.splice(i,1); renderAttendance(); }
+function renderAttTable(){
+  const days=daysInMonth(curMonth,curYear);
+  if(!data.workers.length){ document.getElementById('att-table').innerHTML=''; return; }
+  let html=`<thead><tr><th class="left">Worker</th>`;
+  for(let d=1;d<=days;d++) html+=`<th style="font-size:9px;min-width:32px">${d}</th>`;
+  html+=`<th>Days</th><th>OT2</th><th>OT4</th><th>OT Hrs</th></tr></thead><tbody>`;
+  data.workers.forEach((w,wi)=>{
+    if(!data.attendance[wi]) data.attendance[wi]={};
+    html+=`<tr><td style="text-align:left;white-space:nowrap;font-size:12px">${w.name||'Worker '+(wi+1)}</td>`;
+    let days_p=0,ot2=0,ot4=0;
+    for(let d=1;d<=days;d++){
+      const val=(data.attendance[wi][d]||'').toUpperCase();
+      if(val==='P'||val==='P2'||val==='P4') days_p++;
+      if(val==='P2') ot2++;
+      if(val==='P4') ot4++;
+      html+=`<td><input class="cell-inp att" maxlength="3" value="${data.attendance[wi][d]||''}" placeholder="—" onchange="setAtt(${wi},${d},this.value)"></td>`;
+    }
+    html+=`<td class="total-cell">${days_p}</td><td>${ot2}</td><td>${ot4}</td><td class="total-cell">${ot2*2+ot4*4}</td></tr>`;
+  });
+  html+=`</tbody>`;
+  document.getElementById('att-table').innerHTML=html;
+}
+function setAtt(wi,day,val){
+  if(!data.attendance[wi]) data.attendance[wi]={};
+  data.attendance[wi][day]=val.toUpperCase();
+}
+
+// ── ADVANCES ──────────────────────────────────────────────────────────────────
+function renderAdvances(){
+  const tbody=document.getElementById('adv-body');
+  tbody.innerHTML='';
+  (data.advances||[]).forEach((a,i)=>{ tbody.appendChild(advRow(a,i)); });
+}
+function advRow(a,i){
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td><input value="${a.date||''}" placeholder="DD-Mon" onchange="data.advances[${i}].date=this.value"></td>
+<td><input value="${a.worker||''}" placeholder="Worker Name" onchange="data.advances[${i}].worker=this.value"></td>
+<td><input type="number" value="${a.amount||''}" placeholder="0" onchange="data.advances[${i}].amount=+this.value"></td>
+<td><input value="${a.mode||'Cash'}" placeholder="Cash/UPI" onchange="data.advances[${i}].mode=this.value"></td>
+<td><input value="${a.notes||''}" placeholder="Notes" onchange="data.advances[${i}].notes=this.value"></td>
+<td><button class="del-btn" onclick="delAdvRow(${i})">✕</button></td>`;
+  return tr;
+}
+function addAdvRow(){ data.advances.push({date:'',worker:'',amount:0,mode:'Cash',notes:''}); renderAdvances(); }
+function delAdvRow(i){ data.advances.splice(i,1); renderAdvances(); }
+
+// ── REPORTS ──────────────────────────────────────────────────────────────────
+function calcGrossSales(){
+  return Object.values(data.sales||{}).reduce((a,r)=>a+Object.values(r).reduce((b,v)=>b+(+v||0),0),0);
+}
+function renderReports(){
+  const gross=calcGrossSales();
+  const commTotal=SALES_CATS.reduce((a,c)=>{
+    const k=c.toLowerCase().replace(' ','_');
+    const catTotal=Object.values(data.sales||{}).reduce((b,r)=>b+(+r[k]||0),0);
+    const rate=(data.commRates[k]||0)/100;
+    return a+Math.round(catTotal*rate);
+  },0);
+  const netSales=gross-commTotal;
+  const totalVendor=VENDORS.reduce((a,v)=>a+Object.values(data.vendorPurchases||{}).reduce((b,r)=>b+(+r[v]||0),0),0);
+  const totalExp=(data.expenses||[]).reduce((a,e)=>a+(+e.amount||0),0);
+  const totalAdv=(data.advances||[]).reduce((a,e)=>a+(+e.amount||0),0);
+  const totalPayroll=calcTotalPayroll();
+  const net=netSales-totalVendor-totalExp-totalPayroll;
+
+  // per-channel breakdown
+  let salesRows='';
+  SALES_CATS.forEach(c=>{
+    const k=c.toLowerCase().replace(' ','_');
+    const catTotal=Object.values(data.sales||{}).reduce((b,r)=>b+(+r[k]||0),0);
+    const rate=(data.commRates[k]||0)/100;
+    const comm=Math.round(catTotal*rate);
+    salesRows+=`
+<tr><td style="text-align:left">${c}</td>
+<td>₹${catTotal.toLocaleString('en-IN')}</td>
+<td><input type="number" step="0.5" min="0" max="100" value="${data.commRates[k]||0}" style="width:70px;background:var(--inp-bg);border:1px solid var(--inp-border);border-radius:6px;padding:4px 8px;color:var(--accent);font-family:var(--font-body);font-size:12px;text-align:center" onchange="data.commRates['${k}']=+this.value;renderReports()"> %</td>
+<td style="color:var(--red)">₹${comm.toLocaleString('en-IN')}</td>
+<td style="color:var(--green);font-weight:600">₹${(catTotal-comm).toLocaleString('en-IN')}</td>
+</tr>`;
+  });
+
+  // vendor breakdown
+  let vendorRows='';
+  const vTotals=VENDORS.map(v=>({v,t:Object.values(data.vendorPurchases||{}).reduce((a,r)=>a+(+r[v]||0),0)})).sort((a,b)=>b.t-a.t);
+  vTotals.forEach(({v,t})=>{
+    if(!t) return;
+    vendorRows+=`<tr><td style="text-align:left">${v}</td><td style="color:var(--red)">₹${t.toLocaleString('en-IN')}</td><td style="color:var(--text2)">${totalVendor?((t/totalVendor)*100).toFixed(1):'0'}%</td></tr>`;
+  });
+
+  // attendance summary
+  let attRows='';
+  (data.workers||[]).forEach((w,wi)=>{
+    const rec=data.attendance[wi]||{};
+    const vals=Object.values(rec).map(v=>(v||'').toUpperCase());
+    const dp=vals.filter(v=>v==='P'||v==='P2'||v==='P4').length;
+    const ot2=vals.filter(v=>v==='P2').length;
+    const ot4=vals.filter(v=>v==='P4').length;
+    const otHrs=ot2*2+ot4*4;
+    const basic=w.salary?Math.round(w.salary/26*dp):0;
+    const otAmt=otHrs*(w.otRate||100);
+    const advAmt=(data.advances||[]).filter(a=>a.worker===w.name).reduce((a,e)=>a+(+e.amount||0),0);
+    const net2=basic+otAmt-advAmt;
+    if(!w.name) return;
+    attRows+=`<tr><td style="text-align:left">${w.name}</td><td>${dp}</td><td>${ot2}</td><td>${ot4}</td><td>${otHrs}</td><td>₹${basic.toLocaleString('en-IN')}</td><td style="color:var(--accent)">₹${otAmt.toLocaleString('en-IN')}</td><td style="color:var(--red)">₹${advAmt.toLocaleString('en-IN')}</td><td style="color:var(--green);font-weight:600">₹${net2.toLocaleString('en-IN')}</td></tr>`;
+  });
+
+  document.getElementById('reports-content').innerHTML=`
+<div class="stat-grid">
+  <div class="stat-card"><div class="lbl">Gross Sales</div><div class="val amber">₹${gross.toLocaleString('en-IN')}</div></div>
+  <div class="stat-card"><div class="lbl">Commission</div><div class="val red">₹${commTotal.toLocaleString('en-IN')}</div></div>
+  <div class="stat-card"><div class="lbl">Net Sales</div><div class="val green">₹${netSales.toLocaleString('en-IN')}</div></div>
+  <div class="stat-card"><div class="lbl">Vendor Purchases</div><div class="val red">₹${totalVendor.toLocaleString('en-IN')}</div></div>
+  <div class="stat-card"><div class="lbl">Cash Expenses</div><div class="val red">₹${totalExp.toLocaleString('en-IN')}</div></div>
+  <div class="stat-card"><div class="lbl">Net Profit / Loss</div><div class="val ${net>=0?'green':'red'}">₹${net.toLocaleString('en-IN')}</div></div>
+</div>
+
+<div class="report-block">
+  <h3>Sales by Channel</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th class="left">Channel</th><th>Gross Sales</th><th>Commission Rate</th><th>Commission</th><th>Net Sales</th></tr></thead>
+    <tbody>${salesRows}</tbody>
+    <tfoot><tr class="total-row"><td>Total</td><td>₹${gross.toLocaleString('en-IN')}</td><td>—</td><td>₹${commTotal.toLocaleString('en-IN')}</td><td>₹${netSales.toLocaleString('en-IN')}</td></tr></tfoot>
+  </table></div>
+</div>
+
+<div class="report-block">
+  <h3>Vendor Purchases</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th class="left">Vendor</th><th>Amount</th><th>% of Total</th></tr></thead>
+    <tbody>${vendorRows}</tbody>
+    <tfoot><tr class="total-row"><td>Total</td><td>₹${totalVendor.toLocaleString('en-IN')}</td><td>100%</td></tr></tfoot>
+  </table></div>
+</div>
+
+<div class="report-block">
+  <h3>Payroll Summary</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th class="left">Worker</th><th>Days</th><th>OT2</th><th>OT4</th><th>OT Hrs</th><th>Basic</th><th>OT Amt</th><th>Advance</th><th>Net Payable</th></tr></thead>
+    <tbody>${attRows}</tbody>
+    <tfoot><tr class="total-row"><td colspan="5">Total Payroll</td><td colspan="3"></td><td>₹${totalPayroll.toLocaleString('en-IN')}</td></tr></tfoot>
+  </table></div>
+</div>
+
+<div class="report-block">
+  <h3>P &amp; L Summary</h3>
+  <div class="pl-row income"><span class="pl-lbl">Net Sales (after commission)</span><span class="pl-val" style="color:var(--green)">₹${netSales.toLocaleString('en-IN')}</span></div>
+  <div class="pl-row expense"><span class="pl-lbl">(-) Vendor Purchases</span><span class="pl-val" style="color:var(--red)">(₹${totalVendor.toLocaleString('en-IN')})</span></div>
+  <div class="pl-row expense"><span class="pl-lbl">(-) Cash Expenses</span><span class="pl-val" style="color:var(--red)">(₹${totalExp.toLocaleString('en-IN')})</span></div>
+  <div class="pl-row expense"><span class="pl-lbl">(-) Staff Payroll (net of advances)</span><span class="pl-val" style="color:var(--red)">(₹${totalPayroll.toLocaleString('en-IN')})</span></div>
+  <div class="pl-row net"><span class="pl-lbl">NET PROFIT / (LOSS)</span><span class="pl-val" style="color:${net>=0?'var(--green)':'var(--red)'}">₹${net.toLocaleString('en-IN')}</span></div>
+</div>`;
+}
+function calcTotalPayroll(){
+  return (data.workers||[]).reduce((tot,w,wi)=>{
+    const rec=data.attendance[wi]||{};
+    const vals=Object.values(rec).map(v=>(v||'').toUpperCase());
+    const dp=vals.filter(v=>v==='P'||v==='P2'||v==='P4').length;
+    const ot2=vals.filter(v=>v==='P2').length;
+    const ot4=vals.filter(v=>v==='P4').length;
+    const otHrs=ot2*2+ot4*4;
+    const basic=w.salary?Math.round(w.salary/26*dp):0;
+    const otAmt=otHrs*(w.otRate||100);
+    const advAmt=(data.advances||[]).filter(a=>a.worker===w.name).reduce((a,e)=>a+(+e.amount||0),0);
+    return tot+basic+otAmt-advAmt;
+  },0);
+}
+
+// ── ARCHIVE ──────────────────────────────────────────────────────────────────
+function renderArchive(){
+  const grid=document.getElementById('archive-grid');
+  if(!grid) return;
+  if(!savedMonths.length){ grid.innerHTML=`<div style="color:var(--text3);font-size:13px;padding:20px 0">No saved months yet. Save the current month to start the archive.</div>`; return; }
+  grid.innerHTML='';
+  [...savedMonths].reverse().forEach(s=>{
+    const card=document.createElement('div'); card.className='archive-card';
+    card.innerHTML=`<div class="ac-month">${monthLabel(s.month,s.year)}</div>
+<div class="ac-meta">Last saved: ${s.savedAt||'—'}</div>
+<div class="ac-stats"><div class="ac-stat"><span>₹${(+s.grossSales||0).toLocaleString('en-IN')}</span>Gross Sales</div></div>
+<button class="ac-btn" onclick="openMonth(${s.month},${s.year})">📂 Open</button>
+<button class="ac-btn" style="margin-top:6px" onclick="exportMonthXLSX(${s.month},${s.year})">⬇ Export Excel</button>`;
+    grid.appendChild(card);
+  });
+}
+
+// ── MONTH PICKER ──────────────────────────────────────────────────────────────
+function openMonthPicker(){
+  selectedModal.month=curMonth||new Date().getMonth()+1;
+  selectedModal.year=curYear||new Date().getFullYear();
+  document.getElementById('modal-year').value=selectedModal.year;
+  renderMonthGrid();
+  renderModalArchive();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(){ document.getElementById('modal-overlay').classList.remove('open'); }
+function renderMonthGrid(){
+  const grid=document.getElementById('month-grid');
+  grid.innerHTML='';
+  MONTHS.forEach((m,i)=>{
+    const chip=document.createElement('div'); chip.className='month-chip';
+    const mn=i+1, yr=parseInt(document.getElementById('modal-year').value)||2026;
+    const saved=savedMonths.find(s=>s.month===mn&&s.year===yr);
+    if(saved) chip.classList.add('has-data');
+    if(mn===selectedModal.month) chip.classList.add('active');
+    chip.textContent=m;
+    chip.onclick=()=>{ selectedModal.month=mn; selectedModal.year=yr; renderMonthGrid(); };
+    grid.appendChild(chip);
+  });
+}
+
+function renderModalArchive(){
+  const list=document.getElementById('modal-archive-list');
+  list.innerHTML='';
+  if(!savedMonths.length){ list.innerHTML='<div style="color:var(--text3);font-size:12px">No saved months yet.</div>'; return; }
+  [...savedMonths].reverse().forEach(s=>{
+    const item=document.createElement('div'); item.className='archive-item';
+    item.innerHTML=`<span class="month-name">${monthLabel(s.month,s.year)}</span>
+<span class="meta">Saved ${s.savedAt||'—'}</span>
+<button class="dl-btn" onclick="exportMonthXLSX(${s.month},${s.year})">⬇ xlsx</button>`;
+    item.onclick=(e)=>{ if(e.target.classList.contains('dl-btn')) return; closeModal(); openMonth(s.month,s.year); };
+    list.appendChild(item);
+  });
+}
+async function confirmMonth(){
+  const m=selectedModal.month, y=parseInt(document.getElementById('modal-year').value)||2026;
+  closeModal();
+  await openMonth(m,y);
+}
+
+// ── EXPORT XLSX ───────────────────────────────────────────────────────────────
+async function exportMonthXLSX(m,y){
+  // load data from sheet if not current
+  let d2=data;
+  if(m!==curMonth||y!==curYear){
+    const tab=sheetTab(m,y);
+    try{ const rows=await sheetsGet(`${tab}!A1`); if(rows.length&&rows[0][0]) d2=JSON.parse(rows[0][0]); else { toast('No data for '+monthLabel(m,y),'error'); return; } }catch(e){ toast('Failed to load','error'); return; }
+  }
+  buildXLSX(d2, m, y);
+}
+function exportXLSX(){ if(!data){ toast('No data','error'); return; } buildXLSX(data,curMonth,curYear); }
+
+function buildXLSX(d,m,y){
+  const wb=XLSX.utils.book_new();
+  const ml=monthLabel(m,y);
+  const days=daysInMonth(m,y);
+  const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  // Sheet 1: Sales
+  const salesRows=[['Date','Day',...SALES_CATS,'Total']];
+  const keys=['zomato','swiggy','toing','card','upi','cash','any_other'];
+  for(let i=1;i<=days;i++){
+    const dt=new Date(y,m-1,i);
+    const r=d.sales[i]||{};
+    const vals=keys.map(k=>+r[k]||0);
+    salesRows.push([`${String(i).padStart(2,'0')}-${MONTHS[m-1]}`,dayNames[dt.getDay()],...vals,vals.reduce((a,b)=>a+b,0)]);
+  }
+  const tots=keys.map(k=>Object.values(d.sales||{}).reduce((a,r)=>a+(+r[k]||0),0));
+  salesRows.push(['MONTHLY TOTAL','',...tots,tots.reduce((a,b)=>a+b,0)]);
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(salesRows),'Sales');
+
+  // Sheet 2: Cash Expenses
+  const expRows=[['Date','Category','Vendor/Payee','Amount','Mode','Notes'],...(d.expenses||[]).map(e=>[e.date,e.cat,e.vendor,e.amount,e.mode,e.notes])];
+  expRows.push(['TOTAL','','',expRows.slice(1).reduce((a,r)=>a+(+r[3]||0),0)]);
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(expRows),'Cash Expenses');
+
+  // Sheet 3: Vendor Purchases
+  const vpRows=[['Date','Day',...VENDORS,'Total']];
+  // Opening
+  vpRows.push(['Opening Outstanding','',...VENDORS.map(v=>d.vendorOpening[v]||0),VENDORS.reduce((a,v)=>a+(d.vendorOpening[v]||0),0)]);
+  for(let i=1;i<=days;i++){
+    const dt=new Date(y,m-1,i);
+    const r=d.vendorPurchases[i]||{};
+    const vals=VENDORS.map(v=>+r[v]||0);
+    vpRows.push([`${String(i).padStart(2,'0')}-${MONTHS[m-1]}`,dayNames[dt.getDay()],...vals,vals.reduce((a,b)=>a+b,0)]);
+  }
+  const vtots=VENDORS.map(v=>Object.values(d.vendorPurchases||{}).reduce((a,r)=>a+(+r[v]||0),0));
+  vpRows.push(['MONTHLY TOTAL','',...vtots,vtots.reduce((a,b)=>a+b,0)]);
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(vpRows),'Vendor Purchases');
+
+  // Sheet 4: Attendance
+  const attHdr=['Worker','Designation','Salary','OT Rate',...Array.from({length:days},(_,i)=>i+1),'Days Present','OT2 Days','OT4 Days','OT Hrs','Basic Payable','OT Amount','Advance','Net Payable'];
+  const attRows=[attHdr];
+  (d.workers||[]).forEach((w,wi)=>{
+    const rec=d.attendance[wi]||{};
+    const dayVals=Array.from({length:days},(_,i)=>rec[i+1]||'');
+    const dp=dayVals.filter(v=>v==='P'||v==='P2'||v==='P4').length;
+    const ot2=dayVals.filter(v=>v==='P2').length;
+    const ot4=dayVals.filter(v=>v==='P4').length;
+    const otHrs=ot2*2+ot4*4;
+    const basic=w.salary?Math.round(w.salary/26*dp):0;
+    const otAmt=otHrs*(w.otRate||100);
+    const adv=(d.advances||[]).filter(a=>a.worker===w.name).reduce((a,e)=>a+(+e.amount||0),0);
+    attRows.push([w.name,w.desig,w.salary,w.otRate||100,...dayVals,dp,ot2,ot4,otHrs,basic,otAmt,adv,basic+otAmt-adv]);
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(attRows),'Attendance');
+
+  // Sheet 5: Advances
+  const advRows=[['Date','Worker','Amount','Mode','Notes'],...(d.advances||[]).map(a=>[a.date,a.worker,a.amount,a.mode,a.notes])];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(advRows),'Advances');
+
+  // Sheet 6: MIS Report
+  const gross=Object.values(d.sales||{}).reduce((a,r)=>a+Object.values(r).reduce((b,v)=>b+(+v||0),0),0);
+  const commTotal=keys.reduce((a,k)=>{
+    const ct=Object.values(d.sales||{}).reduce((b,r)=>b+(+r[k]||0),0);
+    return a+Math.round(ct*((d.commRates[k]||0)/100));
+  },0);
+  const netSales=gross-commTotal;
+  const totalVendor=vtots.reduce((a,b)=>a+b,0);
+  const totalExp=(d.expenses||[]).reduce((a,e)=>a+(+e.amount||0),0);
+  const totalPayroll=(d.workers||[]).reduce((tot,w,wi)=>{
+    const rec=d.attendance[wi]||{};
+    const vals=Object.values(rec).map(v=>(v||'').toUpperCase());
+    const dp2=vals.filter(v=>v==='P'||v==='P2'||v==='P4').length;
+    const ot22=vals.filter(v=>v==='P2').length;
+    const ot42=vals.filter(v=>v==='P4').length;
+    const otHrs2=ot22*2+ot42*4;
+    const basic2=w.salary?Math.round(w.salary/26*dp2):0;
+    const otAmt2=otHrs2*(w.otRate||100);
+    const adv2=(d.advances||[]).filter(a=>a.worker===w.name).reduce((a,e)=>a+(+e.amount||0),0);
+    return tot+basic2+otAmt2-adv2;
+  },0);
+  const netPL=netSales-totalVendor-totalExp-totalPayroll;
+  const misRows=[
+    [`MIS REPORT — ${ml}`],[''],
+    ['SALES INCOME'],['Channel','Gross Sales','Comm %','Commission','Net Sales'],
+    ...SALES_CATS.map((c,ci)=>{const k=keys[ci];const ct=Object.values(d.sales||{}).reduce((a,r)=>a+(+r[k]||0),0);const comm=Math.round(ct*((d.commRates[k]||0)/100));return[c,ct,(d.commRates[k]||0)+'%',comm,ct-comm];}),
+    ['GROSS TOTAL',gross,'',commTotal,netSales],[''],
+    ['VENDOR EXPENSES'],['Vendor','Amount','% of Total'],
+    ...VENDORS.map((v,i)=>[v,vtots[i],totalVendor?((vtots[i]/totalVendor)*100).toFixed(1)+'%':'']),
+    ['TOTAL PURCHASES',totalVendor],[''],
+    ['OTHER EXPENSES'],['Cash Expenses',totalExp],[''],
+    ['P&L SUMMARY'],
+    ['Net Sales (after commission)',netSales],
+    ['(-) Vendor Purchases',-totalVendor],
+    ['(-) Cash Expenses',-totalExp],
+    ['(-) Staff Payroll (net)',-totalPayroll],
+    ['NET PROFIT / (LOSS)',netPL],
+  ];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(misRows),'MIS Report');
+
+  XLSX.writeFile(wb,`MIS_${MONTHS[m-1]}_${y}.xlsx`);
+  toast(`Exported MIS_${MONTHS[m-1]}_${y}.xlsx`,'success');
+}
+
+// ── UI HELPERS ────────────────────────────────────────────────────────────────
+function showTab(name){
+  document.querySelectorAll('.nav-tab').forEach((t,i)=>{
+    const tabs=['sales','expenses','vendors','attendance','advances','reports','archive'];
+    t.classList.toggle('active',tabs[i]===name);
+  });
+  document.querySelectorAll('#main .screen').forEach(s=>s.classList.remove('active'));
+  const t=document.getElementById('tab-'+name);
+  if(t){ t.classList.add('active'); if(name==='reports') renderReports(); if(name==='archive') renderArchive(); }
+}
+function showScreen(id){
+  document.querySelectorAll('#main .screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('nav').style.display = id==='auth-screen'?'none':'flex';
+  if(id==='auth-screen'){
+    document.getElementById('auth-screen').classList.add('active');
+    document.getElementById('topbar').style.display='none';
+  } else {
+    document.getElementById('auth-screen').classList.remove('active');
+    document.getElementById('topbar').style.display='flex';
+  }
+}
+function loading(on){ document.getElementById('loading').style.display=on?'flex':'none'; }
+let toastTimer=null;
+function toast(msg,type=''){
+  const t=document.getElementById('toast'); t.textContent=msg;
+  t.className='show '+(type||''); clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.className='',3000);
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+window.addEventListener('load',()=>{
+  document.getElementById('topbar').style.display='none';
+  document.getElementById('nav').style.display='none';
+  init().catch(e=>{ console.error(e); document.getElementById('loading').style.display='none'; document.getElementById('app').style.display='flex'; toast('Init error: '+e.message,'error'); });
+});
+</script>
+</body>
+</html>
