@@ -592,6 +592,7 @@ async function init(){
   document.getElementById('app').style.display='flex';
 }
 function signIn(){ tokenClient.requestAccessToken({prompt:'consent'}); }
+function refreshToken(){ tokenClient.requestAccessToken({prompt:''}); }  // silent refresh
 function signOut(){
   google.accounts.oauth2.revoke(accessToken,()=>{});
   accessToken=null; data=null;
@@ -604,35 +605,58 @@ function signOut(){
   toast('Signed out — please sign in again');
 }
 async function onSignedIn(){
-  // get user info
+  loading(true);
   try{
-    const r=await fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+accessToken}});
-    const u=await r.json();
-    document.getElementById('user-name').textContent=u.given_name||u.email;
-    document.getElementById('user-avatar').src=u.picture||'';
-  }catch(e){}
-  // Permanently hide auth screen, show app shell
-  document.getElementById('auth-screen').style.display='none';
-  document.getElementById('topbar').style.display='flex';
-  document.getElementById('nav').style.display='flex';
-  // ensure INDEX tab exists
-  await ensureIndex();
-  await loadVendorList();
-  await loadIndex();
-  // default: current month
-  const now=new Date();
-  await openMonth(now.getMonth()+1, now.getFullYear());
+    // get user info
+    try{
+      const r=await fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+accessToken}});
+      const u=await r.json();
+      document.getElementById('user-name').textContent=u.given_name||u.email;
+      document.getElementById('user-avatar').src=u.picture||'';
+    }catch(e){}
+    // Permanently hide auth screen, show app shell
+    document.getElementById('auth-screen').style.display='none';
+    document.getElementById('topbar').style.display='flex';
+    document.getElementById('nav').style.display='flex';
+    // ensure INDEX tab + vendor list
+    await ensureIndex();
+    await loadVendorList();
+    await loadIndex();
+    // default: current month
+    const now=new Date();
+    await openMonth(now.getMonth()+1, now.getFullYear());
+  }catch(e){
+    console.error('onSignedIn error',e);
+    toast('Sign-in error: '+e.message,'error');
+    loading(false);
+  }
 }
 
 // ── SHEETS API ───────────────────────────────────────────────────────────────
 async function sheetsGet(range){
-  const r=await gapi.client.sheets.spreadsheets.values.get({spreadsheetId:SHEET_ID,range});
-  return r.result.values||[];
+  try{
+    const r=await gapi.client.sheets.spreadsheets.values.get({spreadsheetId:SHEET_ID,range});
+    return r.result.values||[];
+  }catch(e){
+    console.error('sheetsGet error',range,e);
+    throw new Error('Could not read sheet: '+(e.result?.error?.message||e.message||'unknown error'));
+  }
 }
 async function sheetsUpdate(range,values){
-  await gapi.client.sheets.spreadsheets.values.update({
-    spreadsheetId:SHEET_ID, range, valueInputOption:'RAW', resource:{values}
-  });
+  try{
+    await gapi.client.sheets.spreadsheets.values.update({
+      spreadsheetId:SHEET_ID, range, valueInputOption:'RAW', resource:{values}
+    });
+  }catch(e){
+    console.error('sheetsUpdate error',range,e);
+    // If 401 (token expired), try to refresh and retry once
+    if(e.status===401||e.result?.error?.code===401){
+      toast('Session expired — refreshing…');
+      refreshToken();
+      throw new Error('Token expired. Please try saving again in a moment.');
+    }
+    throw new Error('Could not write to sheet: '+(e.result?.error?.message||e.message||'unknown error'));
+  }
 }
 async function sheetsAppend(range,values){
   await gapi.client.sheets.spreadsheets.values.append({
@@ -641,13 +665,18 @@ async function sheetsAppend(range,values){
   });
 }
 async function ensureTab(name){
-  const meta=await gapi.client.sheets.spreadsheets.get({spreadsheetId:SHEET_ID});
-  const sheets=meta.result.sheets.map(s=>s.properties.title);
-  if(!sheets.includes(name)){
-    await gapi.client.sheets.spreadsheets.batchUpdate({
-      spreadsheetId:SHEET_ID,
-      resource:{requests:[{addSheet:{properties:{title:name}}}]}
-    });
+  try{
+    const meta=await gapi.client.sheets.spreadsheets.get({spreadsheetId:SHEET_ID});
+    const sheets=meta.result.sheets.map(s=>s.properties.title);
+    if(!sheets.includes(name)){
+      await gapi.client.sheets.spreadsheets.batchUpdate({
+        spreadsheetId:SHEET_ID,
+        resource:{requests:[{addSheet:{properties:{title:name}}}]}
+      });
+    }
+  }catch(e){
+    console.error('ensureTab error',name,e);
+    throw new Error('Could not create sheet tab "'+name+'": '+(e.result?.error?.message||e.message||'unknown error'));
   }
 }
 async function ensureIndex(){
@@ -661,51 +690,70 @@ async function loadIndex(){
   renderArchive();
 }
 async function saveIndex(){
-  // rewrite full index
-  const vals=[['Month','Year','SheetTab','SavedAt','GrossSales'],...savedMonths.map(s=>[s.month,s.year,s.tab,s.savedAt,s.grossSales])];
-  await sheetsUpdate('INDEX!A1:E'+(vals.length), vals);
+  try{
+    const vals=[['Month','Year','SheetTab','SavedAt','GrossSales'],...savedMonths.map(s=>[s.month,s.year,s.tab,s.savedAt,s.grossSales])];
+    await sheetsUpdate('INDEX!A1:E'+(vals.length), vals);
+  }catch(e){
+    console.error('saveIndex error',e);
+    throw e; // re-throw so saveData catch handles it
+  }
 }
 
 // ── OPEN / SAVE MONTH ────────────────────────────────────────────────────────
 async function openMonth(m,y){
   loading(true);
-  curMonth=m; curYear=y;
-  document.getElementById('cur-month-label').textContent=monthLabel(m,y);
-  document.getElementById('sales-month-pill').textContent=monthLabel(m,y);
-  document.getElementById('rpt-pill').textContent=monthLabel(m,y);
-  const tab=sheetTab(m,y);
-  const existing=savedMonths.find(s=>s.month===m&&s.year===y);
-  if(existing){
-    const rows=await sheetsGet(`${tab}!A1`);
-    if(rows.length&&rows[0][0]){ try{ data=JSON.parse(rows[0][0]); }catch(e){ data=blankData(m,y); } }
-    else { data=blankData(m,y); }
-  } else {
-    // carry workers from most recent saved month
-    let prevWorkers=[];
-    if(savedMonths.length){ const last=savedMonths[savedMonths.length-1]; try{ const rows=await sheetsGet(`${last.tab}!A1`); if(rows.length&&rows[0][0]){const d2=JSON.parse(rows[0][0]); prevWorkers=d2.workers||[];} }catch(e){} }
-    data=blankData(m,y,prevWorkers);
+  try{
+    curMonth=m; curYear=y;
+    document.getElementById('cur-month-label').textContent=monthLabel(m,y);
+    document.getElementById('sales-month-pill').textContent=monthLabel(m,y);
+    document.getElementById('rpt-pill').textContent=monthLabel(m,y);
+    const tab=sheetTab(m,y);
+    const existing=savedMonths.find(s=>s.month===m&&s.year===y);
+    if(existing){
+      const rows=await sheetsGet(`${tab}!A1`);
+      if(rows.length&&rows[0][0]){ try{ data=JSON.parse(rows[0][0]); }catch(e){ data=blankData(m,y); } }
+      else { data=blankData(m,y); }
+    } else {
+      // carry workers from most recent saved month
+      let prevWorkers=[];
+      if(savedMonths.length){
+        const last=savedMonths[savedMonths.length-1];
+        try{ const rows=await sheetsGet(`${last.tab}!A1`); if(rows.length&&rows[0][0]){const d2=JSON.parse(rows[0][0]); prevWorkers=d2.workers||[];} }catch(e){}
+      }
+      data=blankData(m,y,prevWorkers);
+    }
+    showTab('sales');
+    renderAll();
+  }catch(e){
+    console.error('openMonth error',e);
+    toast('Could not load month: '+e.message,'error');
+  }finally{
+    loading(false);
   }
-  loading(false);
-  showTab('sales');
-  renderAll();
 }
 
 async function saveData(){
   if(!data){ toast('No data to save','error'); return; }
   loading(true);
-  const tab=sheetTab(curMonth,curYear);
-  await ensureTab(tab);
-  await sheetsUpdate(`${tab}!A1`,[[JSON.stringify(data)]]);
-  // update index
-  const idx=savedMonths.findIndex(s=>s.month===curMonth&&s.year===curYear);
-  const entry={month:curMonth,year:curYear,tab,savedAt:new Date().toLocaleDateString('en-IN'),grossSales:calcGrossSales()};
-  if(idx>=0) savedMonths[idx]=entry; else savedMonths.push(entry);
-  savedMonths.sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month);
-  await saveIndex();
-  renderArchive();
-  loading(false);
-  toast('Saved to Google Drive ✓','success');
-  document.getElementById('save-status').textContent='Saved '+new Date().toLocaleTimeString();
+  try{
+    const tab=sheetTab(curMonth,curYear);
+    await ensureTab(tab);
+    await sheetsUpdate(`${tab}!A1`,[[JSON.stringify(data)]]);
+    // update index
+    const idx=savedMonths.findIndex(s=>s.month===curMonth&&s.year===curYear);
+    const entry={month:curMonth,year:curYear,tab,savedAt:new Date().toLocaleDateString('en-IN'),grossSales:calcGrossSales()};
+    if(idx>=0) savedMonths[idx]=entry; else savedMonths.push(entry);
+    savedMonths.sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month);
+    await saveIndex();
+    renderArchive();
+    toast('Saved to Google Drive ✓','success');
+    document.getElementById('save-status').textContent='Saved '+new Date().toLocaleTimeString();
+  }catch(e){
+    console.error('saveData error',e);
+    toast('Save failed: '+e.message,'error');
+  }finally{
+    loading(false);
+  }
 }
 
 // ── RENDER ALL ───────────────────────────────────────────────────────────────
