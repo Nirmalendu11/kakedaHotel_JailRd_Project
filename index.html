@@ -473,6 +473,11 @@ tr.total-row td { background: var(--surface3); font-weight: 600; color: var(--ac
         <div class="section-hdr" style="margin-bottom:12px"><h2 style="font-size:20px">Outstanding Balance per Vendor</h2></div>
         <div id="vpay-outstanding"></div>
       </div>
+      <div style="margin-top:36px">
+        <div class="section-hdr" style="margin-bottom:4px"><h2 style="font-size:20px">Weekly Purchase Summary</h2></div>
+        <div style="font-size:13px;color:var(--text3);margin-bottom:14px">Auto-calculated from daily purchase entries. Weeks run Mon–Sun. Use this to see what was purchased each week before deciding payments.</div>
+        <div id="vpay-weekly"></div>
+      </div>
     </div>
 
     <!-- VENDOR SETUP -->
@@ -644,12 +649,17 @@ async function sheetsGet(range){
 }
 async function sheetsUpdate(range,values){
   try{
-    await gapi.client.sheets.spreadsheets.values.update({
-      spreadsheetId:SHEET_ID, range, valueInputOption:'RAW', resource:{values}
+    const resp = await gapi.client.request({
+      path: `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}`,
+      method: 'PUT',
+      params: {valueInputOption:'RAW'},
+      body: JSON.stringify({range, values})
     });
+    if(resp.status && resp.status >= 400){
+      throw new Error(resp.result?.error?.message || 'HTTP '+resp.status);
+    }
   }catch(e){
     console.error('sheetsUpdate error',range,e);
-    // If 401 (token expired), try to refresh and retry once
     if(e.status===401||e.result?.error?.code===401){
       toast('Session expired — refreshing…');
       refreshToken();
@@ -680,9 +690,21 @@ async function ensureTab(name){
   }
 }
 async function ensureIndex(){
-  await ensureTab('INDEX');
-  const vals=await sheetsGet('INDEX!A1');
-  if(!vals.length) await sheetsUpdate('INDEX!A1:D1',[['Month','Year','SheetTab','SavedAt']]);
+  try{
+    await ensureTab('INDEX');
+    const vals=await sheetsGet('INDEX!A1');
+    if(!vals.length||!vals[0][0]){
+      await gapi.client.sheets.spreadsheets.values.update({
+        spreadsheetId:SHEET_ID,
+        range:'INDEX!A1',
+        valueInputOption:'RAW',
+        resource:{values:[['Month','Year','SheetTab','SavedAt','GrossSales']]}
+      });
+    }
+  }catch(e){
+    console.error('ensureIndex error',e);
+    // Non-fatal — continue even if this fails
+  }
 }
 async function loadIndex(){
   const rows=await sheetsGet('INDEX!A2:E100');
@@ -691,11 +713,23 @@ async function loadIndex(){
 }
 async function saveIndex(){
   try{
-    const vals=[['Month','Year','SheetTab','SavedAt','GrossSales'],...savedMonths.map(s=>[s.month,s.year,s.tab,s.savedAt,s.grossSales])];
-    await sheetsUpdate('INDEX!A1:E'+(vals.length), vals);
+    const vals=[
+      ['Month','Year','SheetTab','SavedAt','GrossSales'],
+      ...savedMonths.map(s=>[s.month,s.year,s.tab,s.savedAt||'',+(s.grossSales||0)])
+    ];
+    // Clear old data first, then write — avoids range-size mismatch errors
+    await gapi.client.sheets.spreadsheets.values.clear({
+      spreadsheetId:SHEET_ID, range:'INDEX!A:E'
+    });
+    await gapi.client.sheets.spreadsheets.values.update({
+      spreadsheetId:SHEET_ID,
+      range:'INDEX!A1',
+      valueInputOption:'RAW',
+      resource:{values:vals}
+    });
   }catch(e){
     console.error('saveIndex error',e);
-    throw e; // re-throw so saveData catch handles it
+    throw new Error('Could not update index: '+(e.result?.error?.message||e.message||'unknown'));
   }
 }
 
@@ -738,7 +772,13 @@ async function saveData(){
   try{
     const tab=sheetTab(curMonth,curYear);
     await ensureTab(tab);
-    await sheetsUpdate(`${tab}!A1`,[[JSON.stringify(data)]]);
+    // Save month data as JSON in cell A1 of the month tab
+    await gapi.client.request({
+      path: `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(tab+'!A1')}`,
+      method: 'PUT',
+      params: {valueInputOption:'RAW'},
+      body: JSON.stringify({range: tab+'!A1', values:[[JSON.stringify(data)]]})
+    });
     // update index
     const idx=savedMonths.findIndex(s=>s.month===curMonth&&s.year===curYear);
     const entry={month:curMonth,year:curYear,tab,savedAt:new Date().toLocaleDateString('en-IN'),grossSales:calcGrossSales()};
@@ -778,6 +818,102 @@ function renderVendorPayments(){
   tbody.innerHTML='';
   data.vendorPayLog.forEach((p,i)=>tbody.appendChild(vpayRow(p,i)));
   renderVpayOutstanding();
+  renderVpayWeekly();
+}
+
+function getWeeks(m,y){
+  // Returns [{label, days:[1..n]}] for all Mon-Sun weeks touching the month
+  const first=new Date(y,m-1,1);
+  const lastDay=new Date(y,m,0).getDate();
+  const weeks=[];
+  // find Monday of the week containing day 1
+  let mon=new Date(first);
+  mon.setDate(first.getDate()-((first.getDay()+6)%7)); // roll back to Monday
+  let wn=1;
+  while(true){
+    const sun=new Date(mon); sun.setDate(mon.getDate()+6);
+    // days of this week that fall in this month
+    const days=[];
+    for(let d=1;d<=lastDay;d++){
+      const dt=new Date(y,m-1,d);
+      if(dt>=mon && dt<=sun) days.push(d);
+    }
+    if(days.length){
+      const startLbl=days[0]+'/'+(m<10?'0'+m:m);
+      const endLbl=days[days.length-1]+'/'+(m<10?'0'+m:m);
+      weeks.push({label:'Week '+wn+'  ('+startLbl+' – '+endLbl+')', days});
+      wn++;
+    }
+    if(sun>=new Date(y,m-1,lastDay)) break;
+    mon.setDate(mon.getDate()+7);
+  }
+  return weeks;
+}
+
+function renderVpayWeekly(){
+  const el=document.getElementById('vpay-weekly');
+  if(!el||!data) return;
+  const weeks=getWeeks(curMonth,curYear);
+  // For Sadik, group by calendar periods instead of weeks
+  const SADIK='Sadik Trading';
+  const sadikPeriods=[
+    {label:'Sadik: 1–10', days:Array.from({length:10},(_,i)=>i+1)},
+    {label:'Sadik: 11–20', days:Array.from({length:10},(_,i)=>i+11)},
+    {label:'Sadik: 21–End', days:Array.from({length:new Date(curYear,curMonth,0).getDate()-20},(_,i)=>i+21)},
+  ];
+
+  // Non-Sadik vendors
+  const nonSadik=VENDORS.filter(v=>v!==SADIK);
+
+  let html='';
+
+  // ── Weekly table for non-Sadik vendors ──────────────────────────────
+  html+=`<div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border);margin-bottom:24px"><table>
+    <thead><tr>
+      <th class="left" style="min-width:160px">Week / Period</th>
+      ${nonSadik.map(v=>`<th style="font-size:10px;min-width:80px">${v.split(' ')[0]}</th>`).join('')}
+      <th>Week Total</th>
+    </tr></thead><tbody>`;
+
+  weeks.forEach(wk=>{
+    const rowTots=nonSadik.map(v=>wk.days.reduce((a,d)=>a+(+(data.vendorPurchases[d]||{})[v]||0),0));
+    const wkTotal=rowTots.reduce((a,b)=>a+b,0);
+    html+=`<tr>
+      <td class="date-cell" style="font-weight:600">${wk.label}</td>
+      ${rowTots.map(t=>`<td>${t?'₹'+t.toLocaleString('en-IN'):'—'}</td>`).join('')}
+      <td class="total-cell">${wkTotal?'₹'+wkTotal.toLocaleString('en-IN'):'—'}</td>
+    </tr>`;
+  });
+
+  // Monthly total row
+  const mTots=nonSadik.map(v=>Object.values(data.vendorPurchases||{}).reduce((a,r)=>a+(+r[v]||0),0));
+  const mGrand=mTots.reduce((a,b)=>a+b,0);
+  html+=`<tr class="total-row"><td style="text-align:left">Monthly Total</td>
+    ${mTots.map(t=>`<td>₹${t.toLocaleString('en-IN')}</td>`).join('')}
+    <td>₹${mGrand.toLocaleString('en-IN')}</td>
+  </tr></tbody></table></div>`;
+
+  // ── Sadik Trading — calendar period table ────────────────────────────
+  html+=`<div style="font-size:14px;font-weight:600;color:var(--text2);margin-bottom:8px">Sadik Trading — Calendar Period Breakdown</div>
+  <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border);margin-bottom:8px"><table>
+    <thead><tr>
+      <th class="left">Period</th>
+      <th>Purchases (₹)</th>
+    </tr></thead><tbody>`;
+
+  let sadikTotal=0;
+  sadikPeriods.forEach(p=>{
+    const t=p.days.reduce((a,d)=>a+(+(data.vendorPurchases[d]||{})[SADIK]||0),0);
+    sadikTotal+=t;
+    html+=`<tr>
+      <td class="date-cell" style="font-weight:600">${p.label}</td>
+      <td class="total-cell">${t?'₹'+t.toLocaleString('en-IN'):'—'}</td>
+    </tr>`;
+  });
+  html+=`<tr class="total-row"><td style="text-align:left">Monthly Total</td><td>₹${sadikTotal.toLocaleString('en-IN')}</td></tr>
+  </tbody></table></div>`;
+
+  el.innerHTML=html;
 }
 
 function vpayRow(p,i){
@@ -987,7 +1123,7 @@ function renderVendors(){
     VENDORS.forEach(v=>{
       html+=`<td><input class="cell-inp" type="number" min="0" value="${row[v]||''}" placeholder="—" onchange="setVendor(${i},'${v.replace(/'/g,"\\'")}',this.value)"></td>`;
     });
-    html+=`<td class="total-cell">${tot?tot.toLocaleString('en-IN'):'—'}</td></tr>`;
+    html+=`<td class="total-cell" id="vtot-${i}">${tot?tot.toLocaleString('en-IN'):'—'}</td></tr>`;
   }
   // totals
   html+=`<tr class="total-row"><td colspan="2">Monthly Total</td>`;
@@ -996,10 +1132,21 @@ function renderVendors(){
     html+=`<td>${t?'₹'+t.toLocaleString('en-IN'):'—'}</td>`;
   });
   const gt=VENDORS.reduce((a,v)=>a+Object.values(data.vendorPurchases).reduce((b,r)=>b+(+r[v]||0),0),0);
-  html+=`<td>₹${gt.toLocaleString('en-IN')}</td></tr></tbody>`;
+  html+=`<td id="vtot-monthly">₹${gt.toLocaleString('en-IN')}</td></tr></tbody>`;
   document.getElementById('vendor-table').innerHTML=html;
 }
-function setVendor(day,vendor,val){ if(!data.vendorPurchases[day]) data.vendorPurchases[day]={}; data.vendorPurchases[day][vendor]=+val||0; }
+function setVendor(day,vendor,val){
+  if(!data.vendorPurchases[day]) data.vendorPurchases[day]={};
+  data.vendorPurchases[day][vendor]=+val||0;
+  // Recalculate and update this row's total cell in real time
+  const rowTot=VENDORS.reduce((a,v)=>a+(+data.vendorPurchases[day][v]||0),0);
+  const el=document.getElementById('vtot-'+day);
+  if(el) el.textContent=rowTot?'₹'+rowTot.toLocaleString('en-IN'):'—';
+  // Update monthly total cell
+  const gt=VENDORS.reduce((a,v)=>a+Object.values(data.vendorPurchases).reduce((b,r)=>b+(+r[v]||0),0),0);
+  const gtEl=document.getElementById('vtot-monthly');
+  if(gtEl) gtEl.textContent='₹'+gt.toLocaleString('en-IN');
+}
 
 // ── ATTENDANCE ───────────────────────────────────────────────────────────────
 function renderAttendance(){
@@ -1389,7 +1536,7 @@ function showTab(name){
   if(t){ t.classList.add('active');
     if(name==='reports') renderReports();
     if(name==='archive') renderArchive();
-    if(name==='vendor-payments') renderVendorPayments();
+    if(name==='vendor-payments'){ renderVendorPayments(); renderVpayWeekly(); }
     if(name==='vendor-setup') renderVendorSetup();
   }
 }
