@@ -447,7 +447,10 @@ tr.total-row td { background: var(--surface3); font-weight: 600; color: var(--ac
 
     <!-- ARCHIVE -->
     <div id="tab-archive" class="screen">
-      <div class="section-hdr"><h2>Month Archive</h2><span class="pill">All saved months</span></div>
+      <div class="section-hdr" style="justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div style="display:flex;align-items:center;gap:12px"><h2>Month Archive</h2><span class="pill">All saved months</span></div>
+        <button class="add-row-btn" style="margin-top:0" onclick="recoverMonths()">&#x1F504; Scan &amp; Recover</button>
+      </div>
       <div class="archive-grid" id="archive-grid"></div>
     </div>
 
@@ -709,9 +712,18 @@ async function ensureIndex(){
   }
 }
 async function loadIndex(){
-  const rows=await sheetsGet('INDEX!A2:E100');
-  savedMonths=rows.map(r=>({month:+r[0],year:+r[1],tab:r[2],savedAt:r[3]||'',grossSales:r[4]||0}));
-  renderArchive();
+  try{
+    const rows=await sheetsGet('INDEX!A2:E100');
+    savedMonths=rows
+      .filter(r=>r&&r.length>=3&&!isNaN(+r[0])&&!isNaN(+r[1])&&r[2]&&r[2].trim())
+      .map(r=>({month:+r[0],year:+r[1],tab:r[2].trim(),savedAt:r[3]||'',grossSales:+(r[4]||0)}));
+    console.log('INDEX loaded:',savedMonths.length,'months');
+    renderArchive();
+  }catch(e){
+    console.error('loadIndex error',e);
+    savedMonths=[];
+    renderArchive();
+  }
 }
 async function saveIndex(){
   try{
@@ -744,19 +756,39 @@ async function openMonth(m,y){
     document.getElementById('sales-month-pill').textContent=monthLabel(m,y);
     document.getElementById('rpt-pill').textContent=monthLabel(m,y);
     const tab=sheetTab(m,y);
-    const existing=savedMonths.find(s=>s.month===m&&s.year===y);
-    if(existing){
+    let loaded=false;
+    try{
       const rows=await sheetsGet(`${tab}!A1`);
-      if(rows.length&&rows[0][0]){ try{ data=JSON.parse(rows[0][0]); }catch(e){ data=blankData(m,y); } }
-      else { data=blankData(m,y); }
-    } else {
-      // carry workers from most recent saved month
+      if(rows&&rows.length&&rows[0]&&rows[0][0]&&rows[0][0].trim()[0]==='{'){ const parsed=JSON.parse(rows[0][0]);
+        if(parsed&&typeof parsed==='object'&&parsed.month){ data=parsed; loaded=true;
+          if(!savedMonths.find(s=>s.month===m&&s.year===y)){
+            savedMonths.push({month:m,year:y,tab,savedAt:'recovered',grossSales:0});
+            savedMonths.sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month);
+            renderArchive();
+          }
+        }
+      }
+    }catch(e){ console.warn('tab read',tab,e.message); }
+    if(!loaded){
       let prevWorkers=[];
       if(savedMonths.length){
         const last=savedMonths[savedMonths.length-1];
-        try{ const rows=await sheetsGet(`${last.tab}!A1`); if(rows.length&&rows[0][0]){const d2=JSON.parse(rows[0][0]); prevWorkers=d2.workers||[];} }catch(e){}
+        try{ const pr=await sheetsGet(`${last.tab}!A1`); if(pr&&pr.length&&pr[0][0]){const d2=JSON.parse(pr[0][0]); prevWorkers=d2.workers||[];} }catch(e){}
       }
       data=blankData(m,y,prevWorkers);
+    }
+    if(data){
+      if(!data.vendorOpening) data.vendorOpening={};
+      if(!data.vendorPurchases) data.vendorPurchases={};
+      if(!data.vendorPayLog) data.vendorPayLog=[];
+      if(!data.advances) data.advances=[];
+      if(!data.expenses) data.expenses=[];
+      if(!data.workers) data.workers=[];
+      if(!data.attendance) data.attendance={};
+      if(!data.commRates) data.commRates={};
+      VENDORS.forEach(v=>{ if(!(v in data.vendorOpening)) data.vendorOpening[v]=0;
+        Object.keys(data.vendorPurchases).forEach(day=>{ if(!(v in data.vendorPurchases[day])) data.vendorPurchases[day][v]=0; });
+      });
     }
     showTab('sales');
     renderAll();
@@ -773,14 +805,20 @@ async function saveData(){
   loading(true);
   try{
     const tab=sheetTab(curMonth,curYear);
+    const jsonStr=JSON.stringify(data);
+    console.log('Saving',tab,'size:',jsonStr.length);
     await ensureTab(tab);
-    // Save month data as JSON in cell A1 of the month tab
     await gapi.client.request({
       path: `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(tab+'!A1')}`,
       method: 'PUT',
       params: {valueInputOption:'RAW'},
-      body: JSON.stringify({range: tab+'!A1', values:[[JSON.stringify(data)]]})
+      body: JSON.stringify({range: tab+'!A1', values:[[jsonStr]]})
     });
+    try{
+      const vfy=await sheetsGet(`${tab}!A1`);
+      if(!vfy||!vfy.length||!vfy[0][0]) throw new Error('empty');
+      console.log('Verified:',vfy[0][0].length,'chars saved');
+    }catch(ve){ console.warn('verify:',ve.message); }
     // update index
     const idx=savedMonths.findIndex(s=>s.month===curMonth&&s.year===curYear);
     const entry={month:curMonth,year:curYear,tab,savedAt:new Date().toLocaleDateString('en-IN'),grossSales:calcGrossSales()};
@@ -1528,6 +1566,37 @@ function buildXLSX(d,m,y){
 }
 
 // ── UI HELPERS ────────────────────────────────────────────────────────────────
+async function recoverMonths(){
+  toast('Scanning tabs...');
+  loading(true);
+  try{
+    const meta=await gapi.client.sheets.spreadsheets.get({spreadsheetId:SHEET_ID});
+    const allTabs=meta.result.sheets.map(s=>s.properties.title);
+    let recovered=0;
+    for(const tabName of allTabs){
+      const parts=tabName.split('_');
+      if(parts.length!==2) continue;
+      const mIdx=MONTHS.findIndex(m=>m.toLowerCase()===parts[0].toLowerCase());
+      const yr=+parts[1];
+      if(mIdx===-1||isNaN(yr)||yr<2020||yr>2035) continue;
+      const mn=mIdx+1;
+      if(savedMonths.find(s=>s.month===mn&&s.year===yr)) continue;
+      try{
+        const rows=await sheetsGet(tabName+'!A1');
+        if(rows&&rows.length&&rows[0]&&rows[0][0]&&rows[0][0][0]==='{'){ const p=JSON.parse(rows[0][0]);
+          if(p&&p.month){ savedMonths.push({month:mn,year:yr,tab:tabName,savedAt:'recovered',grossSales:0}); recovered++; }
+        }
+      }catch(e){ console.warn('skip',tabName); }
+    }
+    if(recovered>0){
+      savedMonths.sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month);
+      await saveIndex();
+      renderArchive();
+      toast('Recovered '+recovered+' month(s)','success');
+    } else { toast('No missing months found'); }
+  }catch(e){ toast('Recovery failed: '+e.message,'error'); }
+  finally{ loading(false); }
+}
 function showTab(name){
   document.querySelectorAll('.nav-tab').forEach((t,i)=>{
     const tabs=['sales','expenses','vendors','vendor-payments','attendance','advances','reports','archive','vendor-setup'];
