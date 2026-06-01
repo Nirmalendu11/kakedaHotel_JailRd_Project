@@ -415,7 +415,7 @@ tr.total-row td { background: var(--surface3); font-weight: 600; color: var(--ac
 
     <!-- ATTENDANCE -->
     <div id="tab-attendance" class="screen">
-      <div class="section-hdr"><h2>Attendance</h2><span class="pill">P / P2 / P4 / OFF</span></div>
+      <div class="section-hdr"><h2>Attendance</h2><span class="pill">P / P/2 / P2 / P4 / OFF</span></div>
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px">
         <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Worker Setup (salary & OT rate — confidential)</div>
         <div id="worker-list"></div>
@@ -530,7 +530,7 @@ const MONTHS      = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 const DAYS_MAP    = [31,28,31,30,31,30,31,31,30,31,30,31];
 const DEFAULT_VENDORS = ['Milk','BREAKFAST - Neeraj Chaurasia','Rumali Roti','Royal Meat','Silver Foil','Rewari','Spices-ECOM','Coal','Global Packaging','Singh Dry Fruit','Vegetables - Rajesh','Dairy','Chicken - Akram','Sadik Trading','Packing Material - Montu','DeliverIT','Gas Cylinder','Other'];
 let VENDORS = [...DEFAULT_VENDORS]; // mutable — loaded from sheet
-const SALES_CATS  = ['Zomato','Swiggy','Toing','Card','UPI','Cash','Any Other'];
+const SALES_CATS  = ['Zomato','Swiggy','Toing','Dineout','District','Card','UPI','Cash','Any Other'];
 const ONLINE_CATS = ['Zomato','Swiggy','Toing']; // commission-bearing
 
 // ── STATE ───────────────────────────────────────────────────────────────────
@@ -541,6 +541,8 @@ let savedMonths = [];  // [{month,year,sheetTab,savedAt,grossSales}]
 let selectedModal = {month: new Date().getMonth()+1, year: new Date().getFullYear()};
 
 function daysInMonth(m,y){ return m===2&&y%4===0?29:DAYS_MAP[m-1]; }
+function blockArrows(e){ if(e.key==='ArrowUp'||e.key==='ArrowDown'){ e.preventDefault(); return false; } }
+function numVal(v){ return +String(v).replace(/[^0-9.]/g,'')||0; }
 function sheetTab(m,y){ return `${MONTHS[m-1]}_${y}`; }
 function monthLabel(m,y){ return `${MONTHS[m-1]} ${y}`; }
 
@@ -549,14 +551,14 @@ function blankData(m,y,prevWorkers){
   const d=daysInMonth(m,y);
   const sales={}, vend={};
   for(let i=1;i<=d;i++){
-    sales[i]={zomato:0,swiggy:0,toing:0,card:0,upi:0,cash:0,any_other:0};
+    sales[i]={zomato:0,swiggy:0,toing:0,dineout:0,district:0,card:0,upi:0,cash:0,any_other:0};
     vend[i]={};
     VENDORS.forEach(v=>vend[i][v]=0);
   }
   return {
     month:m, year:y,
     openingCash:0,
-    commRates:{zomato:3,swiggy:2.5,toing:0,card:0,upi:0,cash:0,any_other:0},
+    commRates:{zomato:3,swiggy:2.5,toing:0,dineout:0,district:0,card:0,upi:0,cash:0,any_other:0},
     sales,
     expenses:[],
     workers: prevWorkers||[],
@@ -963,7 +965,7 @@ function vpayRow(p,i){
     <td><input value="${p.date||''}" placeholder="DD-Mon-YY" onchange="data.vendorPayLog[${i}].date=this.value"></td>
     <td><select onchange="data.vendorPayLog[${i}].vendor=this.value;renderVpayOutstanding()" style="width:100%;background:var(--inp-bg);border:1px solid var(--inp-border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:var(--font-body);font-size:14px">
       <option value="">-- Select Vendor --</option>${vOpts}</select></td>
-    <td><input type="number" value="${p.amount||''}" placeholder="0" onchange="data.vendorPayLog[${i}].amount=+this.value;renderVpayOutstanding()"></td>
+    <td><input type="text" inputmode="numeric" value="${p.amount||''}" placeholder="0" onchange="data.vendorPayLog[${i}].amount=numVal(this.value);renderVpayOutstanding()" onkeydown="return blockArrows(event)"></td>
     <td><select onchange="data.vendorPayLog[${i}].mode=this.value" style="width:100%;background:var(--inp-bg);border:1px solid var(--inp-border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:var(--font-body);font-size:14px">
       <option ${p.mode==='Bank Transfer'?'selected':''}>Bank Transfer</option>
       <option ${p.mode==='UPI'?'selected':''}>UPI</option>
@@ -1100,19 +1102,19 @@ function renderSales(){
     const row=data.sales[i]||{};
     const tot=SALES_CATS.reduce((a,c)=>a+(+row[c.toLowerCase().replace(' ','_')]||0),0);
     html+=`<tr><td class="date-cell">${String(i).padStart(2,'0')}-${MONTHS[curMonth-1]}</td><td class="date-cell">${days[dt.getDay()]}</td>`;
-    ['zomato','swiggy','toing','card','upi','cash','any_other'].forEach(k=>{
-      html+=`<td><input class="cell-inp" type="number" min="0" value="${row[k]||''}" placeholder="—" onchange="setSales(${i},'${k}',this.value)"></td>`;
+    ['zomato','swiggy','toing','dineout','district','card','upi','cash','any_other'].forEach(k=>{
+      html+=`<td><input class="cell-inp" type="text" inputmode="numeric" value="${row[k]||''}" placeholder="—" onchange="setSales(${i},'${k}',this.value)" onkeydown="return blockArrows(event)"></td>`;
     });
     html+=`<td class="total-cell">${tot?tot.toLocaleString('en-IN'):'—'}</td></tr>`;
   }
   // totals
   const tots={};
-  ['zomato','swiggy','toing','card','upi','cash','any_other'].forEach(k=>{
+  ['zomato','swiggy','toing','dineout','district','card','upi','cash','any_other'].forEach(k=>{
     tots[k]=Object.values(data.sales).reduce((a,r)=>a+(+r[k]||0),0);
   });
   const gt=Object.values(tots).reduce((a,b)=>a+b,0);
   html+=`<tr class="total-row"><td colspan="2">Monthly Total</td>`;
-  ['zomato','swiggy','toing','card','upi','cash','any_other'].forEach(k=>html+=`<td>₹${tots[k].toLocaleString('en-IN')}</td>`);
+  ['zomato','swiggy','toing','dineout','district','card','upi','cash','any_other'].forEach(k=>html+=`<td>₹${tots[k].toLocaleString('en-IN')}</td>`);
   html+=`<td>₹${gt.toLocaleString('en-IN')}</td></tr></tbody>`;
   document.getElementById('sales-table').innerHTML=html;
 }
@@ -1130,7 +1132,7 @@ function expRow(e,i){
   tr.innerHTML=`<td><input value="${e.date||''}" placeholder="DD-Mon" onchange="data.expenses[${i}].date=this.value"></td>
 <td><input value="${e.cat||''}" placeholder="Description" onchange="data.expenses[${i}].cat=this.value"></td>
 <td><input value="${e.vendor||''}" placeholder="Vendor" onchange="data.expenses[${i}].vendor=this.value"></td>
-<td><input type="number" value="${e.amount||''}" placeholder="0" onchange="data.expenses[${i}].amount=+this.value"></td>
+<td><input type="text" inputmode="numeric" value="${e.amount||''}" placeholder="0" onchange="data.expenses[${i}].amount=numVal(this.value)" onkeydown="return blockArrows(event)"></td>
 <td><input value="${e.mode||'Cash'}" placeholder="Cash/UPI" onchange="data.expenses[${i}].mode=this.value"></td>
 <td><input value="${e.notes||''}" placeholder="Notes" onchange="data.expenses[${i}].notes=this.value"></td>
 <td><button class="del-btn" onclick="delExpRow(${i})">✕</button></td>`;
@@ -1146,7 +1148,7 @@ function renderVendors(){
   og.innerHTML='';
   VENDORS.forEach(v=>{
     const d=document.createElement('div'); d.className='vendor-ob-item';
-    d.innerHTML=`<label>${v}</label><input type="number" value="${data.vendorOpening[v]||0}" onchange="data.vendorOpening['${v}']=+this.value">`;
+    d.innerHTML=`<label>${v}</label><input type="text" inputmode="numeric" value="${data.vendorOpening[v]||0}" onchange="data.vendorOpening['${v}']=numVal(this.value)" onkeydown="return blockArrows(event)">`;
     og.appendChild(d);
   });
   // Daily table
@@ -1161,7 +1163,7 @@ function renderVendors(){
     const tot=VENDORS.reduce((a,v)=>a+(+row[v]||0),0);
     html+=`<tr><td class="date-cell">${String(i).padStart(2,'0')}-${MONTHS[curMonth-1]}</td><td class="date-cell">${dayNames[dt.getDay()]}</td>`;
     VENDORS.forEach(v=>{
-      html+=`<td><input class="cell-inp" type="number" min="0" value="${row[v]||''}" placeholder="—" onchange="setVendor(${i},'${v.replace(/'/g,"\\'")}',this.value)"></td>`;
+      html+=`<td><input class="cell-inp" type="text" inputmode="numeric" value="${row[v]||''}" placeholder="—" onkeydown="return blockArrows(event)" onchange="setVendor(${i},'${v.replace(/'/g,"\\'")}',this.value)"></td>`;
     });
     html+=`<td class="total-cell" id="vtot-${i}">${tot?tot.toLocaleString('en-IN'):'—'}</td></tr>`;
   }
@@ -1195,43 +1197,77 @@ function renderAttendance(){
   wl.innerHTML='';
   (data.workers||[]).forEach((w,i)=>{
     const div=document.createElement('div'); div.className='worker-row';
+    const _woDayOpts=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<option value="${d}" ${(w.weeklyOff||'')=== d?'selected':''}>${d}</option>`).join('');
     div.innerHTML=`<span class="worker-num">${i+1}</span>
-<input value="${w.name||''}" placeholder="Worker Name" onchange="data.workers[${i}].name=this.value;renderAttTable()">
-<input value="${w.desig||''}" placeholder="Designation" onchange="data.workers[${i}].desig=this.value">
-<input class="sal-inp" type="number" value="${w.salary||''}" placeholder="Salary ₹" onchange="data.workers[${i}].salary=+this.value">
-<input class="ot-inp" type="number" value="${w.otRate||100}" placeholder="OT ₹/hr" onchange="data.workers[${i}].otRate=+this.value">
+<input value="${w.name||''}" placeholder="Worker Name" style="min-width:130px" onchange="data.workers[${i}].name=this.value;renderAttTable()">
+<input value="${w.desig||''}" placeholder="Designation" style="min-width:90px" onchange="data.workers[${i}].desig=this.value">
+<input class="sal-inp" type="text" inputmode="numeric" value="${w.salary||''}" placeholder="Salary ₹" onchange="data.workers[${i}].salary=numVal(this.value)" onkeydown="return blockArrows(event)">
+<input class="ot-inp" type="text" inputmode="numeric" value="${w.otRate||100}" placeholder="OT ₹/hr" onchange="data.workers[${i}].otRate=numVal(this.value)" onkeydown="return blockArrows(event)">
+<select onchange="data.workers[${i}].weeklyOff=this.value;renderAttTable()" style="background:var(--inp-bg);border:1px solid var(--inp-border);border-radius:7px;padding:7px 8px;color:var(--text);font-family:var(--font-body);font-size:13px">
+  <option value="">W/Off day?</option>${_woDayOpts}
+</select>
 <button class="del-btn" onclick="delWorker(${i})">✕</button>`;
     wl.appendChild(div);
   });
   renderAttTable();
 }
-function addWorker(){ data.workers.push({name:'',desig:'',salary:0,otRate:100}); renderAttendance(); }
+function addWorker(){ data.workers.push({name:'',desig:'',salary:0,otRate:100,weeklyOff:''}); renderAttendance(); }
 function delWorker(i){ data.workers.splice(i,1); renderAttendance(); }
+function calcWageDetails(w,wi,m,y){
+  const rec=data.attendance[wi]||{};
+  const totalDays=daysInMonth(m,y);
+  let daysWorked=0,ot2=0,ot4=0,offDays=0,plPresent=0;
+  for(let d=1;d<=totalDays;d++){
+    const v=(rec[d]||'').toUpperCase().trim();
+    if(v==='P'||v==='P2'||v==='P4'){daysWorked+=1;if(v==='P2')ot2++;if(v==='P4')ot4++;plPresent++;}
+    else if(v==='P/2'){daysWorked+=0.5;plPresent++;}
+    else if(v==='OFF'){offDays++;}
+  }
+  const otHrs=ot2*2+ot4*4;
+  let weeklyOffCount=0;
+  if(w.weeklyOff){
+    const woIdx=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].indexOf(w.weeklyOff);
+    if(woIdx>=0){ for(let d=1;d<=totalDays;d++){
+      const dt=new Date(y,m-1,d); const nd=dt.getDay()===0?6:dt.getDay()-1;
+      if(nd===woIdx) weeklyOffCount++;
+    }}
+  }
+  const weeklyOffCredit=(offDays>6)?0:weeklyOffCount;
+  const plEarned=Math.floor(plPresent/6);
+  const totalPaidDays=daysWorked+weeklyOffCredit+plEarned;
+  const basicWage=Math.round((w.salary||0)/30*totalPaidDays);
+  const otAmt=otHrs*(w.otRate||100);
+  const grossPay=basicWage+otAmt;
+  const advAmt=(data.advances||[]).filter(a=>a.worker===w.name).reduce((a,e)=>a+(+e.amount||0),0);
+  return {daysWorked,ot2,ot4,otHrs,offDays,weeklyOffCount,weeklyOffCredit,plPresent,plEarned,totalPaidDays,basicWage,otAmt,grossPay,advAmt,netPay:grossPay-advAmt};
+}
 function renderAttTable(){
   const days=daysInMonth(curMonth,curYear);
   if(!data.workers.length){ document.getElementById('att-table').innerHTML=''; return; }
-  let html=`<thead><tr><th class="left">Worker</th>`;
-  for(let d=1;d<=days;d++) html+=`<th style="font-size:9px;min-width:32px">${d}</th>`;
-  html+=`<th>Days</th><th>OT2</th><th>OT4</th><th>OT Hrs</th></tr></thead><tbody>`;
+  let html=`<thead><tr><th class="left" style="min-width:110px">Worker</th>`;
+  for(let d=1;d<=days;d++) html+=`<th style="font-size:9px;min-width:26px;padding:3px 1px">${d}</th>`;
+  html+=`<th style="min-width:40px;font-size:9px">Days<br>Wrkd</th><th style="min-width:32px;font-size:9px">OFF</th><th style="min-width:36px;font-size:9px;color:#1a8a5a">W/Off<br>Cred</th><th style="min-width:28px;font-size:9px;color:#1a6fbd">PL</th><th style="min-width:40px;font-size:9px">Paid<br>Days</th><th style="font-size:9px">OT2</th><th style="font-size:9px">OT4</th><th style="font-size:9px">OT Hrs</th></tr></thead><tbody>`;
   data.workers.forEach((w,wi)=>{
     if(!data.attendance[wi]) data.attendance[wi]={};
-    html+=`<tr><td style="text-align:left;white-space:nowrap;font-size:12px">${w.name||'Worker '+(wi+1)}</td>`;
-    let days_p=0,ot2=0,ot4=0;
+    const wd=calcWageDetails(w,wi,curMonth,curYear);
+    html+=`<tr><td style="text-align:left;white-space:nowrap;font-size:11px;font-weight:500">${w.name||'Worker '+(wi+1)}<br><span style="font-size:9px;color:var(--text3)">${w.weeklyOff?'Off:'+w.weeklyOff:''}</span></td>`;
     for(let d=1;d<=days;d++){
-      const val=(data.attendance[wi][d]||'').toUpperCase();
-      if(val==='P'||val==='P2'||val==='P4') days_p++;
-      if(val==='P2') ot2++;
-      if(val==='P4') ot4++;
-      html+=`<td><input class="cell-inp att" maxlength="3" value="${data.attendance[wi][d]||''}" placeholder="—" onchange="setAtt(${wi},${d},this.value)"></td>`;
+      const val=data.attendance[wi][d]||'';
+      const dt=new Date(curYear,curMonth-1,d);
+      const woIdx=w.weeklyOff?['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].indexOf(w.weeklyOff):-1;
+      const nd=dt.getDay()===0?6:dt.getDay()-1;
+      const isWO=(woIdx>=0&&nd===woIdx);
+      html+=`<td style="${isWO?'background:rgba(46,204,138,.1)':''}"><input class="cell-inp att" maxlength="3" value="${val}" placeholder="—" style="min-width:24px;font-size:10px" onchange="setAtt(${wi},${d},this.value)"></td>`;
     }
-    html+=`<td class="total-cell">${days_p}</td><td>${ot2}</td><td>${ot4}</td><td class="total-cell">${ot2*2+ot4*4}</td></tr>`;
+    html+=`<td class="total-cell">${wd.daysWorked}</td><td style="color:var(--red)">${wd.offDays}</td><td style="color:var(--green);font-weight:600">${wd.weeklyOffCredit}</td><td style="color:var(--blue)">${wd.plEarned}</td><td class="total-cell" style="font-weight:700">${wd.totalPaidDays}</td><td>${wd.ot2}</td><td>${wd.ot4}</td><td class="total-cell">${wd.otHrs}</td></tr>`;
   });
   html+=`</tbody>`;
   document.getElementById('att-table').innerHTML=html;
 }
 function setAtt(wi,day,val){
   if(!data.attendance[wi]) data.attendance[wi]={};
-  data.attendance[wi][day]=val.toUpperCase();
+  data.attendance[wi][day]=val.trim().toUpperCase();
+  renderAttTable();
 }
 
 // ── ADVANCES ──────────────────────────────────────────────────────────────────
@@ -1244,7 +1280,7 @@ function advRow(a,i){
   const tr=document.createElement('tr');
   tr.innerHTML=`<td><input value="${a.date||''}" placeholder="DD-Mon" onchange="data.advances[${i}].date=this.value"></td>
 <td><input value="${a.worker||''}" placeholder="Worker Name" onchange="data.advances[${i}].worker=this.value"></td>
-<td><input type="number" value="${a.amount||''}" placeholder="0" onchange="data.advances[${i}].amount=+this.value"></td>
+<td><input type="text" inputmode="numeric" value="${a.amount||''}" placeholder="0" onchange="data.advances[${i}].amount=numVal(this.value)" onkeydown="return blockArrows(event)"></td>
 <td><input value="${a.mode||'Cash'}" placeholder="Cash/UPI" onchange="data.advances[${i}].mode=this.value"></td>
 <td><input value="${a.notes||''}" placeholder="Notes" onchange="data.advances[${i}].notes=this.value"></td>
 <td><button class="del-btn" onclick="delAdvRow(${i})">✕</button></td>`;
@@ -1282,7 +1318,7 @@ function renderReports(){
     salesRows+=`
 <tr><td style="text-align:left">${c}</td>
 <td>₹${catTotal.toLocaleString('en-IN')}</td>
-<td><input type="number" step="0.5" min="0" max="100" value="${data.commRates[k]||0}" style="width:70px;background:var(--inp-bg);border:1px solid var(--inp-border);border-radius:6px;padding:4px 8px;color:var(--accent);font-family:var(--font-body);font-size:12px;text-align:center" onchange="data.commRates['${k}']=+this.value;renderReports()"> %</td>
+<td><input type="number" step="0.5" min="0" max="100" value="${data.commRates[k]||0}" style="width:70px;background:var(--inp-bg);border:1px solid var(--inp-border);border-radius:6px;padding:4px 8px;color:var(--accent);font-family:var(--font-body);font-size:12px;text-align:center" onchange="data.commRates['${k}']=numVal(this.value);renderReports()" onkeydown="return blockArrows(event)"> %</td>
 <td style="color:var(--red)">₹${comm.toLocaleString('en-IN')}</td>
 <td style="color:var(--green);font-weight:600">₹${(catTotal-comm).toLocaleString('en-IN')}</td>
 </tr>`;
@@ -1296,21 +1332,21 @@ function renderReports(){
     vendorRows+=`<tr><td style="text-align:left">${v}</td><td style="color:var(--red)">₹${t.toLocaleString('en-IN')}</td><td style="color:var(--text2)">${totalVendor?((t/totalVendor)*100).toFixed(1):'0'}%</td></tr>`;
   });
 
-  // attendance summary
+  // attendance summary using full wage logic
   let attRows='';
   (data.workers||[]).forEach((w,wi)=>{
-    const rec=data.attendance[wi]||{};
-    const vals=Object.values(rec).map(v=>(v||'').toUpperCase());
-    const dp=vals.filter(v=>v==='P'||v==='P2'||v==='P4').length;
-    const ot2=vals.filter(v=>v==='P2').length;
-    const ot4=vals.filter(v=>v==='P4').length;
-    const otHrs=ot2*2+ot4*4;
-    const basic=w.salary?Math.round(w.salary/26*dp):0;
-    const otAmt=otHrs*(w.otRate||100);
-    const advAmt=(data.advances||[]).filter(a=>a.worker===w.name).reduce((a,e)=>a+(+e.amount||0),0);
-    const net2=basic+otAmt-advAmt;
     if(!w.name) return;
-    attRows+=`<tr><td style="text-align:left">${w.name}</td><td>${dp}</td><td>${ot2}</td><td>${ot4}</td><td>${otHrs}</td><td>₹${basic.toLocaleString('en-IN')}</td><td style="color:var(--accent)">₹${otAmt.toLocaleString('en-IN')}</td><td style="color:var(--red)">₹${advAmt.toLocaleString('en-IN')}</td><td style="color:var(--green);font-weight:600">₹${net2.toLocaleString('en-IN')}</td></tr>`;
+    const wd=calcWageDetails(w,wi,curMonth,curYear);
+    attRows+=`<tr>
+      <td style="text-align:left">${w.name}<br><span style="font-size:10px;color:var(--text3)">${w.desig||''}</span></td>
+      <td>${wd.daysWorked}</td><td style="color:var(--green)">${wd.weeklyOffCredit}</td><td style="color:var(--blue)">${wd.plEarned}</td>
+      <td style="font-weight:700;color:var(--accent)">${wd.totalPaidDays}</td>
+      <td>${wd.ot2}</td><td>${wd.ot4}</td><td>${wd.otHrs}</td>
+      <td>₹${wd.basicWage.toLocaleString('en-IN')}</td>
+      <td style="color:var(--accent)">₹${wd.otAmt.toLocaleString('en-IN')}</td>
+      <td style="color:var(--red)">₹${wd.advAmt.toLocaleString('en-IN')}</td>
+      <td style="color:var(--green);font-weight:600">₹${wd.netPay.toLocaleString('en-IN')}</td>
+    </tr>`;
   });
 
   document.getElementById('reports-content').innerHTML=`
@@ -1344,7 +1380,7 @@ function renderReports(){
 <div class="report-block">
   <h3>Payroll Summary</h3>
   <div class="tbl-wrap"><table>
-    <thead><tr><th class="left">Worker</th><th>Days</th><th>OT2</th><th>OT4</th><th>OT Hrs</th><th>Basic</th><th>OT Amt</th><th>Advance</th><th>Net Payable</th></tr></thead>
+    <thead><tr><th class="left">Worker</th><th>Days Worked</th><th>W/Off</th><th>PL</th><th>Paid Days</th><th>OT2</th><th>OT4</th><th>OT Hrs</th><th>Basic Wage</th><th>OT Amt</th><th>Advance</th><th>Net Payable</th></tr></thead>
     <tbody>${attRows}</tbody>
     <tfoot><tr class="total-row"><td colspan="5">Total</td><td colspan="3"></td><td>₹${grossPayroll.toLocaleString('en-IN')}</td></tr></tfoot>
   </table></div>
@@ -1361,17 +1397,9 @@ function renderReports(){
 </div>`;
 }
 function calcGrossPayroll(){
-  // Basic + OT only, advances treated separately in P&L
   return (data.workers||[]).reduce((tot,w,wi)=>{
-    const rec=data.attendance[wi]||{};
-    const vals=Object.values(rec).map(v=>(v||'').toUpperCase());
-    const dp=vals.filter(v=>v==='P'||v==='P2'||v==='P4').length;
-    const ot2=vals.filter(v=>v==='P2').length;
-    const ot4=vals.filter(v=>v==='P4').length;
-    const otHrs=ot2*2+ot4*4;
-    const basic=w.salary?Math.round(w.salary/26*dp):0;
-    const otAmt=otHrs*(w.otRate||100);
-    return tot+basic+otAmt;
+    if(!w.name) return tot;
+    return tot+calcWageDetails(w,wi,curMonth,curYear).grossPay;
   },0);
 }
 function calcTotalPayroll(){ return calcGrossPayroll(); } // alias kept for XLSX
@@ -1457,7 +1485,7 @@ function buildXLSX(d,m,y){
 
   // Sheet 1: Sales
   const salesRows=[['Date','Day',...SALES_CATS,'Total']];
-  const keys=['zomato','swiggy','toing','card','upi','cash','any_other'];
+  const keys=['zomato','swiggy','toing','dineout','district','card','upi','cash','any_other'];
   for(let i=1;i<=days;i++){
     const dt=new Date(y,m-1,i);
     const r=d.sales[i]||{};
@@ -1488,19 +1516,29 @@ function buildXLSX(d,m,y){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(vpRows),'Vendor Purchases');
 
   // Sheet 4: Attendance
-  const attHdr=['Worker','Designation','Salary','OT Rate',...Array.from({length:days},(_,i)=>i+1),'Days Present','OT2 Days','OT4 Days','OT Hrs','Basic Payable','OT Amount','Advance','Net Payable'];
+  const attHdr=['Worker','Designation','Salary','OT Rate','Weekly Off',...Array.from({length:days},(_,i)=>i+1),'Days Worked','W/Off Credit','PL Earned','Paid Days','OT2','OT4','OT Hrs','Basic Wage','OT Amt','Advance','Net Payable'];
   const attRows=[attHdr];
   (d.workers||[]).forEach((w,wi)=>{
     const rec=d.attendance[wi]||{};
     const dayVals=Array.from({length:days},(_,i)=>rec[i+1]||'');
-    const dp=dayVals.filter(v=>v==='P'||v==='P2'||v==='P4').length;
-    const ot2=dayVals.filter(v=>v==='P2').length;
-    const ot4=dayVals.filter(v=>v==='P4').length;
-    const otHrs=ot2*2+ot4*4;
-    const basic=w.salary?Math.round(w.salary/26*dp):0;
+    let dw=0,ot2x=0,ot4x=0,offDx=0,plPx=0;
+    for(let dd=1;dd<=days;dd++){
+      const v=(rec[dd]||'').toUpperCase().trim();
+      if(v==='P'||v==='P2'||v==='P4'){dw+=1;if(v==='P2')ot2x++;if(v==='P4')ot4x++;plPx++;}
+      else if(v==='P/2'){dw+=0.5;plPx++;}
+      else if(v==='OFF') offDx++;
+    }
+    const otHrs=ot2x*2+ot4x*4;
+    let woCount=0;
+    if(w.weeklyOff){const wIdx=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].indexOf(w.weeklyOff);
+      if(wIdx>=0) for(let dd=1;dd<=days;dd++){const dt=new Date(y,m-1,dd);const nd=dt.getDay()===0?6:dt.getDay()-1;if(nd===wIdx)woCount++;}}
+    const woCr=offDx>6?0:woCount;
+    const plE=Math.floor(plPx/6);
+    const paid=dw+woCr+plE;
+    const basic=Math.round((w.salary||0)/30*paid);
     const otAmt=otHrs*(w.otRate||100);
     const adv=(d.advances||[]).filter(a=>a.worker===w.name).reduce((a,e)=>a+(+e.amount||0),0);
-    attRows.push([w.name,w.desig,w.salary,w.otRate||100,...dayVals,dp,ot2,ot4,otHrs,basic,otAmt,adv,basic+otAmt-adv]);
+    attRows.push([w.name,w.desig,w.salary,w.otRate||100,w.weeklyOff||'',...dayVals,dw,woCr,plE,paid,ot2x,ot4x,otHrs,basic,otAmt,adv,basic+otAmt-adv]);
   });
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(attRows),'Attendance');
 
