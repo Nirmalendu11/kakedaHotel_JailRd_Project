@@ -1214,39 +1214,73 @@ function renderAttendance(){
 function addWorker(){ data.workers.push({name:'',desig:'',salary:0,otRate:100,weeklyOff:''}); renderAttendance(); }
 function delWorker(i){ data.workers.splice(i,1); renderAttendance(); }
 function calcWageDetails(w,wi,m,y){
-  const rec=data.attendance[wi]||{};
-  const totalDays=daysInMonth(m,y);
-  let daysWorked=0,ot2=0,ot4=0,offDays=0,plPresent=0;
-  for(let d=1;d<=totalDays;d++){
+  // ── FINAL WAGE FORMULA ───────────────────────────────────────────────────
+  // Attendance Days = all days marked P/P2/P4 (=1 each) or P/2 (=0.5 wages, 1 for PL)
+  //                  Weekly off days worked count as normal attendance days
+  // PL Earned       = floor(Attendance Days / 6)  — 1 PL per 6 days attended
+  // Total Paid Days = Attendance Days + PL Earned
+  // Wage            = (Salary / 30) × Total Paid Days
+  // Weekly off field = visual highlight only, no wage effect
+  // ─────────────────────────────────────────────────────────────────────────
+  const rec = data.attendance[wi]||{};
+  const totalDays = daysInMonth(m,y);
+
+  // Step 1: scan attendance
+  let daysWorked=0, plAttendance=0, ot2=0, ot4=0;
+  for(let d=1; d<=totalDays; d++){
     const v=(rec[d]||'').toUpperCase().trim();
-    if(v==='P'||v==='P2'||v==='P4'){daysWorked+=1;if(v==='P2')ot2++;if(v==='P4')ot4++;plPresent++;}
-    else if(v==='P/2'){daysWorked+=0.5;plPresent++;}
-    else if(v==='OFF'){offDays++;}
+    if(v==='P'||v==='P2'||v==='P4'){
+      daysWorked  += 1;
+      plAttendance+= 1;
+      if(v==='P2') ot2++;
+      if(v==='P4') ot4++;
+    } else if(v==='P/2'){
+      daysWorked  += 0.5;  // half day for wages
+      plAttendance+= 1;    // full day for PL
+    }
+    // OFF / blank = does not contribute
   }
-  const otHrs=ot2*2+ot4*4;
+  const otHrs = ot2*2 + ot4*4;
+
+  // Step 2: PL = floor(attendance / 6)
+  const plEarned = Math.floor(plAttendance / 6);
+
+  // Step 3: Total paid days & basic wage
+  const totalPaidDays = daysWorked + plEarned;
+  const basicWage = Math.round((w.salary||0) / 30 * totalPaidDays);
+  const otAmt     = otHrs * (w.otRate||100);
+  const grossPay  = basicWage + otAmt;
+  const advAmt    = (data.advances||[])
+    .filter(a=>a.worker===w.name)
+    .reduce((a,e)=>a+(+e.amount||0), 0);
+
+  // Weekly off count (visual reference only)
   let weeklyOffCount=0;
   if(w.weeklyOff){
     const woIdx=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].indexOf(w.weeklyOff);
-    if(woIdx>=0){ for(let d=1;d<=totalDays;d++){
-      const dt=new Date(y,m-1,d); const nd=dt.getDay()===0?6:dt.getDay()-1;
-      if(nd===woIdx) weeklyOffCount++;
-    }}
+    if(woIdx>=0){
+      for(let d=1;d<=totalDays;d++){
+        const dt=new Date(y,m-1,d);
+        const nd=dt.getDay()===0?6:dt.getDay()-1;
+        if(nd===woIdx) weeklyOffCount++;
+      }
+    }
   }
-  const weeklyOffCredit=(offDays>6)?0:weeklyOffCount;
-  const plEarned=Math.floor(plPresent/6);
-  const totalPaidDays=daysWorked+weeklyOffCredit+plEarned;
-  const basicWage=Math.round((w.salary||0)/30*totalPaidDays);
-  const otAmt=otHrs*(w.otRate||100);
-  const grossPay=basicWage+otAmt;
-  const advAmt=(data.advances||[]).filter(a=>a.worker===w.name).reduce((a,e)=>a+(+e.amount||0),0);
-  return {daysWorked,ot2,ot4,otHrs,offDays,weeklyOffCount,weeklyOffCredit,plPresent,plEarned,totalPaidDays,basicWage,otAmt,grossPay,advAmt,netPay:grossPay-advAmt};
+
+  return {
+    daysWorked, plAttendance, plEarned, totalPaidDays,
+    ot2, ot4, otHrs, weeklyOffCount,
+    basicWage, otAmt, grossPay, advAmt,
+    netPay: grossPay - advAmt
+  };
 }
+
 function renderAttTable(){
   const days=daysInMonth(curMonth,curYear);
   if(!data.workers.length){ document.getElementById('att-table').innerHTML=''; return; }
   let html=`<thead><tr><th class="left" style="min-width:110px">Worker</th>`;
   for(let d=1;d<=days;d++) html+=`<th style="font-size:9px;min-width:26px;padding:3px 1px">${d}</th>`;
-  html+=`<th style="min-width:40px;font-size:9px">Days<br>Wrkd</th><th style="min-width:32px;font-size:9px">OFF</th><th style="min-width:36px;font-size:9px;color:#1a8a5a">W/Off<br>Cred</th><th style="min-width:28px;font-size:9px;color:#1a6fbd">PL</th><th style="min-width:40px;font-size:9px">Paid<br>Days</th><th style="font-size:9px">OT2</th><th style="font-size:9px">OT4</th><th style="font-size:9px">OT Hrs</th></tr></thead><tbody>`;
+  html+=`<th style="min-width:40px;font-size:9px">Days<br>Wrkd</th><th style="min-width:34px;font-size:9px;color:#1a6fbd">PL<br>Att</th><th style="min-width:30px;font-size:9px;color:#6a4db8">PL<br>Earnd</th><th style="min-width:42px;font-size:9px;font-weight:700">Total<br>Paid</th><th style="font-size:9px">OT2</th><th style="font-size:9px">OT4</th><th style="font-size:9px">OT Hrs</th></tr></thead><tbody>`;
   data.workers.forEach((w,wi)=>{
     if(!data.attendance[wi]) data.attendance[wi]={};
     const wd=calcWageDetails(w,wi,curMonth,curYear);
@@ -1259,7 +1293,7 @@ function renderAttTable(){
       const isWO=(woIdx>=0&&nd===woIdx);
       html+=`<td style="${isWO?'background:rgba(46,204,138,.1)':''}"><input class="cell-inp att" maxlength="3" value="${val}" placeholder="—" style="min-width:24px;font-size:10px" onchange="setAtt(${wi},${d},this.value)"></td>`;
     }
-    html+=`<td class="total-cell">${wd.daysWorked}</td><td style="color:var(--red)">${wd.offDays}</td><td style="color:var(--green);font-weight:600">${wd.weeklyOffCredit}</td><td style="color:var(--blue)">${wd.plEarned}</td><td class="total-cell" style="font-weight:700">${wd.totalPaidDays}</td><td>${wd.ot2}</td><td>${wd.ot4}</td><td class="total-cell">${wd.otHrs}</td></tr>`;
+    html+=`<td class="total-cell">${wd.daysWorked}</td><td style="color:var(--blue)">${wd.plAttendance}</td><td style="color:var(--purple);font-weight:600">${wd.plEarned}</td><td class="total-cell" style="font-weight:700;color:var(--accent)">${wd.totalPaidDays}</td><td>${wd.ot2}</td><td>${wd.ot4}</td><td class="total-cell">${wd.otHrs}</td></tr>`;
   });
   html+=`</tbody>`;
   document.getElementById('att-table').innerHTML=html;
@@ -1338,9 +1372,9 @@ function renderReports(){
     if(!w.name) return;
     const wd=calcWageDetails(w,wi,curMonth,curYear);
     attRows+=`<tr>
-      <td style="text-align:left">${w.name}<br><span style="font-size:10px;color:var(--text3)">${w.desig||''}</span></td>
-      <td>${wd.daysWorked}</td><td style="color:var(--green)">${wd.weeklyOffCredit}</td><td style="color:var(--blue)">${wd.plEarned}</td>
-      <td style="font-weight:700;color:var(--accent)">${wd.totalPaidDays}</td>
+      <td style="text-align:left">${w.name}<br><span style="font-size:10px;color:var(--text3)">${w.desig||''}${w.weeklyOff?' · Off:'+w.weeklyOff:''}</span></td>
+      <td>${wd.daysWorked}</td><td style="color:var(--blue)">${wd.plAttendance}</td>
+      <td style="color:var(--purple)">${wd.plEarned}</td><td style="font-weight:700;color:var(--accent)">${wd.totalPaidDays}</td>
       <td>${wd.ot2}</td><td>${wd.ot4}</td><td>${wd.otHrs}</td>
       <td>₹${wd.basicWage.toLocaleString('en-IN')}</td>
       <td style="color:var(--accent)">₹${wd.otAmt.toLocaleString('en-IN')}</td>
@@ -1380,7 +1414,7 @@ function renderReports(){
 <div class="report-block">
   <h3>Payroll Summary</h3>
   <div class="tbl-wrap"><table>
-    <thead><tr><th class="left">Worker</th><th>Days Worked</th><th>W/Off</th><th>PL</th><th>Paid Days</th><th>OT2</th><th>OT4</th><th>OT Hrs</th><th>Basic Wage</th><th>OT Amt</th><th>Advance</th><th>Net Payable</th></tr></thead>
+    <thead><tr><th class="left">Worker</th><th>Days Worked</th><th>PL Attendance</th><th>PL Earned</th><th>Total Paid Days</th><th>OT2</th><th>OT4</th><th>OT Hrs</th><th>Basic Wage</th><th>OT Amt</th><th>Advance</th><th>Net Payable</th></tr></thead>
     <tbody>${attRows}</tbody>
     <tfoot><tr class="total-row"><td colspan="5">Total</td><td colspan="3"></td><td>₹${grossPayroll.toLocaleString('en-IN')}</td></tr></tfoot>
   </table></div>
@@ -1516,29 +1550,28 @@ function buildXLSX(d,m,y){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(vpRows),'Vendor Purchases');
 
   // Sheet 4: Attendance
-  const attHdr=['Worker','Designation','Salary','OT Rate','Weekly Off',...Array.from({length:days},(_,i)=>i+1),'Days Worked','W/Off Credit','PL Earned','Paid Days','OT2','OT4','OT Hrs','Basic Wage','OT Amt','Advance','Net Payable'];
+  const attHdr=['Worker','Designation','Salary','OT Rate','Weekly Off',...Array.from({length:days},(_,i)=>i+1),'Days Worked','PL Attendance','PL Earned','Total Paid Days','OT2','OT4','OT Hrs','Basic Wage','OT Amt','Advance','Net Payable'];
   const attRows=[attHdr];
   (d.workers||[]).forEach((w,wi)=>{
     const rec=d.attendance[wi]||{};
     const dayVals=Array.from({length:days},(_,i)=>rec[i+1]||'');
-    let dw=0,ot2x=0,ot4x=0,offDx=0,plPx=0;
+    let dw=0,ot2x=0,ot4x=0,plPx=0;
     for(let dd=1;dd<=days;dd++){
       const v=(rec[dd]||'').toUpperCase().trim();
-      if(v==='P'||v==='P2'||v==='P4'){dw+=1;if(v==='P2')ot2x++;if(v==='P4')ot4x++;plPx++;}
-      else if(v==='P/2'){dw+=0.5;plPx++;}
-      else if(v==='OFF') offDx++;
+      if(v==='P'||v==='P2'||v==='P4'){dw+=1;plPx+=1;if(v==='P2')ot2x++;if(v==='P4')ot4x++;}
+      else if(v==='P/2'){dw+=0.5;plPx+=1;}
     }
     const otHrs=ot2x*2+ot4x*4;
     let woCount=0;
     if(w.weeklyOff){const wIdx=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].indexOf(w.weeklyOff);
       if(wIdx>=0) for(let dd=1;dd<=days;dd++){const dt=new Date(y,m-1,dd);const nd=dt.getDay()===0?6:dt.getDay()-1;if(nd===wIdx)woCount++;}}
-    const woCr=offDx>6?0:woCount;
+    // PL = floor(plAttendance / 6), total paid = daysWorked + PL
     const plE=Math.floor(plPx/6);
-    const paid=dw+woCr+plE;
+    const paid=dw+plE;
     const basic=Math.round((w.salary||0)/30*paid);
     const otAmt=otHrs*(w.otRate||100);
     const adv=(d.advances||[]).filter(a=>a.worker===w.name).reduce((a,e)=>a+(+e.amount||0),0);
-    attRows.push([w.name,w.desig,w.salary,w.otRate||100,w.weeklyOff||'',...dayVals,dw,woCr,plE,paid,ot2x,ot4x,otHrs,basic,otAmt,adv,basic+otAmt-adv]);
+    attRows.push([w.name,w.desig,w.salary,w.otRate||100,w.weeklyOff||'',...dayVals,dw,plPx,plE,paid,ot2x,ot4x,otHrs,basic,otAmt,adv,basic+otAmt-adv]);
   });
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(attRows),'Attendance');
 
