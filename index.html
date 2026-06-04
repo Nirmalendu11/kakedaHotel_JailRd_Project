@@ -396,12 +396,13 @@ tr.total-row td { background: var(--surface3); font-weight: 600; color: var(--ac
           <thead><tr>
             <th class="left">Date</th><th class="left">Category / Description</th>
             <th class="left">Vendor / Payee</th><th>Amount (₹)</th>
-            <th class="left">Mode</th><th class="left">Notes</th><th></th>
+            <th class="left">Mode</th><th class="left">Tag</th><th class="left">Notes</th><th></th>
           </tr></thead>
           <tbody id="exp-body"></tbody>
         </table>
       </div>
       <button class="add-row-btn" onclick="addExpRow()">＋ Add Row</button>
+      <div style="font-size:12px;color:var(--text3);margin-top:8px">💡 Use the <b>Tag</b> column to categorise cash expenses for reporting</div>
     </div>
 
     <!-- BANK EXPENSES -->
@@ -410,12 +411,15 @@ tr.total-row td { background: var(--surface3); font-weight: 600; color: var(--ac
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--text2)">
         Record non-vendor payments made from the bank account — rent, electricity, repairs, salaries paid by transfer, etc.
       </div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--text3)">
+        💡 Select <b>Vendor Payment</b> as category to auto-link to the Vendor Payment tracker. All other categories appear as Bank Expenses in reports.
+      </div>
       <div class="tbl-wrap">
         <table class="entry-table" id="bexp-table">
           <thead><tr>
             <th class="left">Date</th>
-            <th class="left">Category / Description</th>
-            <th class="left">Payee</th>
+            <th class="left">Category</th>
+            <th class="left">Payee / Vendor</th>
             <th>Amount (₹)</th>
             <th class="left">Mode</th>
             <th class="left">Reference / UTR</th>
@@ -483,7 +487,10 @@ tr.total-row td { background: var(--surface3); font-weight: 600; color: var(--ac
     <div id="tab-vendor-payments" class="screen">
       <div class="section-hdr"><h2>Vendor Payments</h2><span class="pill">Payment Register</span></div>
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:24px">
-        <div style="font-size:13px;color:var(--text3);margin-bottom:6px">Log each payment made to a vendor — bank transfer, UPI or cash. Outstanding is calculated automatically per vendor.</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.7">
+          🏦 <b>Bank payments to vendors</b> are entered in the <b>Bank Expenses</b> tab — select category <i>Vendor Payment</i> and choose the vendor. They will automatically appear in the outstanding balance below.<br>
+          💵 Use this log for <b>cash payments to vendors only</b>.
+        </div>
       </div>
       <div class="tbl-wrap">
         <table class="entry-table" id="vpay-table">
@@ -594,7 +601,7 @@ function blankData(m,y,prevWorkers){
     vendorPayments: Object.fromEntries(VENDORS.map(v=>[v,{}])),
     cashVendorPmts: {},
     vendorPayLog: [],  // [{date, vendor, amount, mode, ref}] — flat payment register
-    bankExpenses: [],  // [{date, cat, payee, amount, ref, notes}] — bank/transfer expenses
+    bankExpenses: [],  // [{date, category, payee, vendor, amount, mode, ref, notes}]
   };
 }
 
@@ -1021,7 +1028,9 @@ function renderVpayOutstanding(){
   const rows=VENDORS.map(v=>{
     const opening=+(data.vendorOpening[v]||0);
     const purchases=Object.values(data.vendorPurchases||{}).reduce((a,r)=>a+(+r[v]||0),0);
-    const paid=(data.vendorPayLog||[]).filter(p=>p.vendor===v).reduce((a,p)=>a+(+p.amount||0),0);
+    const paidLog=(data.vendorPayLog||[]).filter(p=>p.vendor===v).reduce((a,p)=>a+(+p.amount||0),0);
+    const paidBank=(data.bankExpenses||[]).filter(e=>e.category==='Vendor Payment'&&e.vendor===v).reduce((a,e)=>a+(+e.amount||0),0);
+    const paid=paidLog+paidBank;
     const outstanding=opening+purchases-paid;
     return {v,opening,purchases,paid,outstanding};
   }).filter(r=>r.opening||r.purchases||r.paid);
@@ -1039,11 +1048,13 @@ function renderVpayOutstanding(){
     </tr></thead><tbody>`;
   rows.forEach(r=>{
     const color=r.outstanding>0?'var(--red)':r.outstanding<0?'var(--green)':'var(--text3)';
+    const paidBank=(data.bankExpenses||[]).filter(e=>e.category==='Vendor Payment'&&e.vendor===r.v).reduce((a,e)=>a+(+e.amount||0),0);
+    const paidCash=r.paid-paidBank;
     html+=`<tr>
       <td style="text-align:left;font-weight:500">${r.v}</td>
       <td>${r.opening?'₹'+r.opening.toLocaleString('en-IN'):'—'}</td>
       <td>₹${r.purchases.toLocaleString('en-IN')}</td>
-      <td style="color:var(--green)">₹${r.paid.toLocaleString('en-IN')}</td>
+      <td style="color:var(--green)">₹${r.paid.toLocaleString('en-IN')}<span style="display:block;font-size:10px;color:var(--text3)">${paidBank?'🏦₹'+paidBank.toLocaleString('en-IN'):''}${paidCash?' 💵₹'+paidCash.toLocaleString('en-IN'):''}</span></td>
       <td style="color:${color};font-weight:600">₹${r.outstanding.toLocaleString('en-IN')}</td>
     </tr>`;
   });
@@ -1162,11 +1173,12 @@ function expRow(e,i){
 <td><input value="${e.vendor||''}" placeholder="Vendor" onchange="data.expenses[${i}].vendor=this.value"></td>
 <td><input type="text" inputmode="numeric" value="${e.amount||''}" placeholder="0" onchange="data.expenses[${i}].amount=numVal(this.value)" onkeydown="return blockArrows(event)"></td>
 <td><select onchange="data.expenses[${i}].mode=this.value" style="background:var(--inp-bg);border:1px solid var(--inp-border);border-radius:6px;padding:6px 8px;color:var(--text);font-family:var(--font-body);font-size:13px"><option ${(e.mode||'Cash')==='Cash'?'selected':''}>Cash</option><option ${(e.mode||'Cash')==='UPI'?'selected':''}>UPI</option></select></td>
+<td><select onchange="data.expenses[${i}].tag=this.value" style="background:var(--inp-bg);border:1px solid var(--inp-border);border-radius:6px;padding:6px 8px;color:var(--text);font-family:var(--font-body);font-size:13px">${['Cleaning & Sanitation', 'Transport', 'Utilities', 'Kitchen Supplies', 'Staff Welfare', 'Repairs', 'Petty Cash', 'Other'].map(c=>`<option value="${c}" ${(e.tag||'Other')===c?'selected':''}>${c}</option>`).join('')}</select></td>
 <td><input value="${e.notes||''}" placeholder="Notes" onchange="data.expenses[${i}].notes=this.value"></td>
 <td><button class="del-btn" onclick="delExpRow(${i})">✕</button></td>`;
   return tr;
 }
-function addExpRow(){ data.expenses.push({date:'',cat:'',vendor:'',amount:0,mode:'Cash',notes:''}); renderExpenses(); }
+function addExpRow(){ data.expenses.push({date:'',cat:'',vendor:'',amount:0,mode:'Cash',tag:'Other',notes:''}); renderExpenses(); }
 function delExpRow(i){ data.expenses.splice(i,1); renderExpenses(); }
 
 // ── BANK EXPENSES ─────────────────────────────────────────────────────────────
@@ -1180,24 +1192,35 @@ function renderBankExpenses(){
 }
 function bexpRow(e,i){
   const tr=document.createElement('tr');
+  const BCATS=['Vendor Payment', 'Rent', 'Premises Maintenance', 'Marketing', 'Advertisement', 'Staff Salary', 'Other'];
+  const isVendor=(e.category||'')==='Vendor Payment';
+  const catOpts=BCATS.map(c=>`<option value="${c}" ${(e.category||'Other')===c?'selected':''}>${c}</option>`).join('');
   const modeOpts=['Bank Transfer','NEFT','IMPS','RTGS','Cheque','UPI'].map(m=>`<option ${(e.mode||'Bank Transfer')===m?'selected':''}>${m}</option>`).join('');
+  const vOpts=VENDORS.map(v=>`<option value="${v}" ${(e.vendor||'')===v?'selected':''}>${v}</option>`).join('');
+  const payeeCell=isVendor
+    ? `<select onchange="data.bankExpenses[${i}].vendor=this.value;data.bankExpenses[${i}].payee=this.value;onBExpVendorChange(${i})" style="width:100%;background:var(--inp-bg);border:1px solid var(--inp-border);border-radius:6px;padding:6px 8px;color:var(--text);font-family:var(--font-body);font-size:13px"><option value="">-- Select Vendor --</option>${vOpts}</select>`
+    : `<input value="${e.payee||''}" placeholder="Payee / Description" onchange="data.bankExpenses[${i}].payee=this.value">`;
   tr.innerHTML=`
     <td><input value="${e.date||''}" placeholder="DD-Mon" onchange="data.bankExpenses[${i}].date=this.value"></td>
-    <td><input value="${e.cat||''}" placeholder="Description" onchange="data.bankExpenses[${i}].cat=this.value"></td>
-    <td><input value="${e.payee||''}" placeholder="Payee" onchange="data.bankExpenses[${i}].payee=this.value"></td>
-    <td><input type="text" inputmode="numeric" value="${e.amount||''}" placeholder="0" onchange="data.bankExpenses[${i}].amount=numVal(this.value)" onkeydown="return blockArrows(event)"></td>
+    <td><select onchange="data.bankExpenses[${i}].category=this.value;renderBankExpenses()" style="width:100%;background:var(--inp-bg);border:1px solid var(--inp-border);border-radius:6px;padding:6px 8px;color:var(--text);font-family:var(--font-body);font-size:13px">${catOpts}</select></td>
+    <td>${payeeCell}</td>
+    <td><input type="text" inputmode="numeric" value="${e.amount||''}" placeholder="0" onchange="data.bankExpenses[${i}].amount=numVal(this.value);onBExpVendorChange(${i})" onkeydown="return blockArrows(event)"></td>
     <td><select onchange="data.bankExpenses[${i}].mode=this.value" style="background:var(--inp-bg);border:1px solid var(--inp-border);border-radius:6px;padding:6px 8px;color:var(--text);font-family:var(--font-body);font-size:13px">${modeOpts}</select></td>
     <td><input value="${e.ref||''}" placeholder="UTR / Ref no." onchange="data.bankExpenses[${i}].ref=this.value"></td>
     <td><input value="${e.notes||''}" placeholder="Notes" onchange="data.bankExpenses[${i}].notes=this.value"></td>
     <td><button class="del-btn" onclick="delBExpRow(${i})">✕</button></td>`;
   return tr;
 }
+function onBExpVendorChange(i){
+  // When a vendor payment entry changes, refresh vendor outstanding
+  renderVpayOutstanding();
+}
 function addBExpRow(){
   if(!data.bankExpenses) data.bankExpenses=[];
   const today=new Date();
   const dd=String(today.getDate()).padStart(2,'0');
   const mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][today.getMonth()];
-  data.bankExpenses.push({date:`${dd}-${mon}`,cat:'',payee:'',amount:0,mode:'Bank Transfer',ref:'',notes:''});
+  data.bankExpenses.push({date:`${dd}-${mon}`,category:'Other',payee:'',vendor:'',amount:0,mode:'Bank Transfer',ref:'',notes:''});
   renderBankExpenses();
 }
 function delBExpRow(i){ data.bankExpenses.splice(i,1); renderBankExpenses(); }
@@ -1418,8 +1441,15 @@ function renderReports(){
   const netSales=gross-commTotal;
   const totalVendor=VENDORS.reduce((a,v)=>a+Object.values(data.vendorPurchases||{}).reduce((b,r)=>b+(+r[v]||0),0),0);
   const totalCashExp=(data.expenses||[]).reduce((a,e)=>a+(+e.amount||0),0);
-  const totalBankExp=(data.bankExpenses||[]).reduce((a,e)=>a+(+e.amount||0),0);
-  const totalExp=totalCashExp+totalBankExp;
+  const totalBankExpAll=(data.bankExpenses||[]).reduce((a,e)=>a+(+e.amount||0),0);
+  const totalBankVendorPmt=(data.bankExpenses||[]).filter(e=>e.category==='Vendor Payment').reduce((a,e)=>a+(+e.amount||0),0);
+  const totalBankExp=totalBankExpAll-totalBankVendorPmt; // non-vendor bank expenses
+  // Category breakdown for bank expenses
+  const bankCatTotals={};
+  ['Vendor Payment', 'Rent', 'Premises Maintenance', 'Marketing', 'Advertisement', 'Staff Salary', 'Other'].forEach(c=>{
+    bankCatTotals[c]=(data.bankExpenses||[]).filter(e=>(e.category||'Other')===c).reduce((a,e)=>a+(+e.amount||0),0);
+  });
+  const totalExp=totalCashExp+totalBankExp; // vendor payments tracked separately
   const totalAdv=(data.advances||[]).reduce((a,e)=>a+(+e.amount||0),0);
   const grossPayroll=calcGrossPayroll();   // basic + OT, before advance deduction
   const net=netSales-totalVendor-totalExp-grossPayroll-totalAdv;
@@ -1473,7 +1503,7 @@ function renderReports(){
   <div class="stat-card"><div class="lbl">Net Sales</div><div class="val green">₹${netSales.toLocaleString('en-IN')}</div></div>
   <div class="stat-card"><div class="lbl">Vendor Purchases</div><div class="val red">₹${totalVendor.toLocaleString('en-IN')}</div></div>
   <div class="stat-card"><div class="lbl">Cash Expenses</div><div class="val red">₹${totalCashExp.toLocaleString('en-IN')}</div></div>
-  <div class="stat-card"><div class="lbl">Bank Expenses</div><div class="val red">₹${totalBankExp.toLocaleString('en-IN')}</div></div>
+  <div class="stat-card"><div class="lbl">Bank Expenses</div><div class="val red">₹${totalBankExp.toLocaleString('en-IN')}</div><div class="sub">excl. vendor pmts</div></div>
   <div class="stat-card"><div class="lbl">Net Profit / Loss</div><div class="val ${net>=0?'green':'red'}">₹${net.toLocaleString('en-IN')}</div></div>
 </div>
 
@@ -1526,7 +1556,8 @@ function renderReports(){
   <div class="pl-row income"><span class="pl-lbl">Net Sales (after commission)</span><span class="pl-val" style="color:var(--green)">₹${netSales.toLocaleString('en-IN')}</span></div>
   <div class="pl-row expense"><span class="pl-lbl">(-) Vendor Purchases</span><span class="pl-val" style="color:var(--red)">(₹${totalVendor.toLocaleString('en-IN')})</span></div>
   <div class="pl-row expense"><span class="pl-lbl">(-) Cash Expenses</span><span class="pl-val" style="color:var(--red)">(₹${totalCashExp.toLocaleString('en-IN')})</span></div>
-  <div class="pl-row expense"><span class="pl-lbl">(-) Bank Expenses</span><span class="pl-val" style="color:var(--red)">(₹${totalBankExp.toLocaleString('en-IN')})</span></div>
+  <div class="pl-row expense"><span class="pl-lbl">(-) Bank Expenses (non-vendor)</span><span class="pl-val" style="color:var(--red)">(₹${totalBankExp.toLocaleString('en-IN')})</span></div>
+  ${totalBankExp>0?`<div style="margin:0 0 8px 16px;font-size:12px;color:var(--text2)">${[ 'Rent', 'Premises Maintenance', 'Marketing', 'Advertisement', 'Staff Salary', 'Other'].filter(c=>bankCatTotals[c]>0).map(c=>`<span style="margin-right:12px">${c}: ₹${bankCatTotals[c].toLocaleString('en-IN')}</span>`).join('')}</div>`:''}
   <div class="pl-row expense"><span class="pl-lbl">(-) Gross Salary &amp; OT Payable</span><span class="pl-val" style="color:var(--red)">(₹${grossPayroll.toLocaleString('en-IN')})</span></div>
   <div class="pl-row expense"><span class="pl-lbl">(-) Advances Paid to Staff</span><span class="pl-val" style="color:var(--red)">(₹${totalAdv.toLocaleString('en-IN')})</span></div>
   <div class="pl-row net"><span class="pl-lbl">NET PROFIT / (LOSS)</span><span class="pl-val" style="color:${net>=0?'var(--green)':'var(--red)'}">₹${net.toLocaleString('en-IN')}</span></div>
@@ -1636,7 +1667,7 @@ function buildXLSX(d,m,y){
   const expRows=[['Date','Category','Vendor/Payee','Amount','Mode','Notes'],...(d.expenses||[]).map(e=>[e.date,e.cat,e.vendor,e.amount,e.mode,e.notes])];
   expRows.push(['TOTAL','','',expRows.slice(1).reduce((a,r)=>a+(+r[3]||0),0)]);
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(expRows),'Cash Expenses');
-  const bexpRows=[['Date','Category','Payee','Amount','Mode','Reference','Notes'],...(d.bankExpenses||[]).map(e=>[e.date,e.cat,e.payee,e.amount,e.mode,e.ref,e.notes])];
+  const bexpRows=[['Date','Category','Payee/Vendor','Amount','Mode','Reference','Notes'],...(d.bankExpenses||[]).map(e=>[e.date,e.category||e.cat||'Other',e.vendor||e.payee,e.amount,e.mode,e.ref,e.notes])];
   bexpRows.push(['TOTAL','','',bexpRows.slice(1).reduce((a,r)=>a+(+r[3]||0),0)]);
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(bexpRows),'Bank Expenses');
 
