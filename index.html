@@ -392,6 +392,15 @@ tr.total-row td { background: var(--surface3); font-weight: 600; color: var(--ac
         or there was a problem accessing the data.<br><br>
         Please contact your administrator, or sign in with a different account.</p>
         <button class="google-btn" onclick="signOut()">Sign Out &amp; Try Different Account</button>
+        <div style="margin-top:14px;font-size:12px;color:var(--text3);text-align:left">
+          <b>To find which Google account has access:</b><br>
+          1. Open <a href="https://drive.google.com" target="_blank" style="color:var(--accent)">drive.google.com</a> in each Google account you use<br>
+          2. Search for a file containing <code style="background:var(--surface3);padding:1px 4px;border-radius:3px">1ZNxdqAs</code> or named "MIS" / "Restaurant"<br>
+          3. Once found, click Share and add both:<br>
+          &nbsp;&nbsp;• nirmal.mishra1@gmail.com<br>
+          &nbsp;&nbsp;• nirmal@fooddestination.net<br>
+          as <b>Editor</b>, then sign in again here.
+        </div>
       </div>
     </div>
 
@@ -720,7 +729,7 @@ async function init(){
   document.getElementById('loading').style.display='none';
   document.getElementById('app').style.display='flex';
 }
-function signIn(){ tokenClient.requestAccessToken({prompt:'consent'}); }
+function signIn(){ tokenClient.requestAccessToken({prompt:'select_account consent'}); }
 function refreshToken(){ tokenClient.requestAccessToken({prompt:''}); }  // silent refresh
 function signOut(){
   google.accounts.oauth2.revoke(accessToken,()=>{});
