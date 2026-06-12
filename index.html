@@ -336,7 +336,7 @@ tr.total-row td { background: var(--surface3); font-weight: 600; color: var(--ac
 
   <!-- TOP BAR -->
   <div id="topbar">
-    <div class="logo" id="topbar-logo">MIS <span id="topbar-subtitle"></span></div>
+    <div class="logo">Kakeda Hotel <span>Jail Road · MIS</span></div>
     <div class="spacer"></div>
     <div id="month-badge" onclick="openMonthPicker()">
       <span class="label">Month</span>
@@ -351,7 +351,6 @@ tr.total-row td { background: var(--surface3); font-weight: 600; color: var(--ac
       <span style="font-size:10px;color:var(--text3)">Sign out</span>
     </button>
     <span class="save-status" id="save-status"></span>
-    <button id="switch-restaurant-btn" onclick="backToPicker()" style="display:none;padding:6px 14px;border-radius:20px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-family:var(--font-body);font-size:12px;cursor:pointer">🔄 Switch Restaurant</button>
   </div>
 
   <!-- NAV -->
@@ -366,7 +365,6 @@ tr.total-row td { background: var(--surface3); font-weight: 600; color: var(--ac
     <div class="nav-tab" onclick="showTab('reports')">📋 Reports</div>
     <div class="nav-tab" onclick="showTab('archive')">🗂 Archive</div>
     <div class="nav-tab" onclick="showTab('vendor-setup')">⚙ Vendors</div>
-    <div class="nav-tab" id="access-nav-tab" onclick="showTab('access-mgmt')" style="display:none">🔐 Access</div>
   </div>
 
   <!-- MAIN -->
@@ -385,65 +383,13 @@ tr.total-row td { background: var(--surface3); font-weight: 600; color: var(--ac
     </div>
 
     <!-- ACCESS DENIED / ERROR -->
-    <div id="access-denied-screen" class="screen">
-      <div class="auth-card" style="max-width:520px">
-        <h1 style="color:var(--red)">Access Restricted</h1>
-        <p>Your Google account (<b id="denied-email"></b>) is not authorized to use this application,
-        or there was a problem accessing the data.<br><br>
-        Please contact your administrator, or sign in with a different account.</p>
-        <button class="google-btn" onclick="signOut()">Sign Out &amp; Try Different Account</button>
-        <div style="margin-top:14px;font-size:12px;color:var(--text3);text-align:left">
-          <b>To find which Google account has access:</b><br>
-          1. Open <a href="https://drive.google.com" target="_blank" style="color:var(--accent)">drive.google.com</a> in each Google account you use<br>
-          2. Search for a file containing <code style="background:var(--surface3);padding:1px 4px;border-radius:3px">1ZNxdqAs</code> or named "MIS" / "Restaurant"<br>
-          3. Once found, click Share and add both:<br>
-          &nbsp;&nbsp;• nirmal.mishra1@gmail.com<br>
-          &nbsp;&nbsp;• nirmal@fooddestination.net<br>
-          as <b>Editor</b>, then sign in again here.
-        </div>
-      </div>
-    </div>
+    
 
     <!-- RESTAURANT PICKER (Admin only) -->
-    <div id="restaurant-picker-screen" class="screen">
-      <div class="auth-card" style="max-width:560px">
-        <h1>Select Restaurant</h1>
-        <p>Signed in as Admin (<b id="admin-email-display"></b>). Choose a restaurant to manage, or set up a new one.</p>
-        <div id="restaurant-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;text-align:left"></div>
-        <button class="google-btn" onclick="showNewRestaurantForm()">＋ Set Up New Restaurant</button>
-        <div id="migration-section" style="display:none;margin-top:20px;border-top:1px solid var(--border);padding-top:20px;text-align:left">
-          <div style="font-size:13px;color:var(--text2);margin-bottom:10px">
-            🔄 Existing data detected from a previous version of this app (Kakeda Hotel, Jail Road). Migrate it to its own dedicated sheet?
-          </div>
-          <button class="add-row-btn" style="margin-top:0;width:100%" onclick="migrateKakedaData()">Migrate Kakeda Hotel Data →</button>
-        </div>
-      </div>
-    </div>
+    
 
     <!-- NEW RESTAURANT SETUP (Admin only) -->
-    <div id="new-restaurant-screen" class="screen">
-      <div class="auth-card" style="max-width:560px;text-align:left">
-        <h1 style="text-align:center">New Restaurant Setup</h1>
-        <div class="form-grid" style="grid-template-columns:1fr">
-          <div class="form-field">
-            <label>Restaurant Name</label>
-            <input id="nr-name" placeholder="e.g. Kakeda Hotel">
-          </div>
-          <div class="form-field">
-            <label>Address</label>
-            <input id="nr-address" placeholder="e.g. Jail Road, City">
-          </div>
-          <div class="form-field">
-            <label>User Email(s) — comma separated</label>
-            <input id="nr-emails" placeholder="owner@email.com, manager@email.com">
-          </div>
-        </div>
-        <div style="display:flex;gap:10px;margin-top:20px">
-          <button class="modal-btn" style="background:var(--green)" onclick="createRestaurant()">Create Restaurant</button>
-          <button class="add-row-btn" style="margin-top:0" onclick="backToPicker()">Cancel</button>
-        </div>
-      </div>
-    </div>
+    
 
     <!-- SALES TAB -->
     <div id="tab-sales" class="screen">
@@ -547,28 +493,7 @@ tr.total-row td { background: var(--surface3); font-weight: 600; color: var(--ac
     </div>
 
     <!-- ACCESS MANAGEMENT (Admin only) -->
-    <div id="tab-access-mgmt" class="screen">
-      <div class="section-hdr"><h2>Access Management</h2><span class="pill" id="access-restaurant-label"></span></div>
-      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:24px">
-        <div style="font-size:13px;color:var(--text2)">Add or remove email addresses that can access this restaurant's data. Changes apply immediately.</div>
-      </div>
-      <div id="access-email-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
-      <div style="display:flex;gap:10px;align-items:flex-end;max-width:480px">
-        <div class="form-field" style="flex:1">
-          <label>New User Email</label>
-          <input id="new-access-email" placeholder="user@email.com">
-        </div>
-        <button class="add-row-btn" style="margin-top:0" onclick="addAccessEmail()">＋ Add</button>
-      </div>
-      <div style="margin-top:24px;border-top:1px solid var(--border);padding-top:20px">
-        <div class="section-hdr" style="margin-bottom:8px"><h2 style="font-size:16px;color:var(--text2)">Restaurant Details</h2></div>
-        <div class="form-grid" style="grid-template-columns:1fr 1fr;max-width:600px">
-          <div class="form-field"><label>Name</label><input id="rest-name-edit"></div>
-          <div class="form-field"><label>Address</label><input id="rest-address-edit"></div>
-        </div>
-        <button class="add-row-btn" style="margin-top:12px" onclick="saveRestaurantDetails()">💾 Save Details</button>
-      </div>
-    </div>
+    
 
     <!-- VENDOR PAYMENTS -->
     <div id="tab-vendor-payments" class="screen">
@@ -641,20 +566,14 @@ tr.total-row td { background: var(--surface3); font-weight: 600; color: var(--ac
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
 const CLIENT_ID   = '18218575360-spri8886hr7g406r1q6o1l5japnlk0ip.apps.googleusercontent.com';
-const MASTER_SHEET_ID = '1ZNxdqAsdjBmdiB6qITHWejVGcObkRRSEIjwAxqWAEDA'; // Registry of all restaurants
-const ADMIN_EMAILS = ['nirmal.mishra1@gmail.com','nirmal@fooddestination.net']; // Super admins — see all restaurants
-let SHEET_ID = null; // Set after restaurant is selected — points to that restaurant's own data sheet
-let curRestaurant = null; // {id, name, address, sheetId}
-let userEmail = null;
-let isAdmin = false;
-let allRestaurants = []; // for admin picker
+const SHEET_ID    = '1ZNxdqAsdjBmdiB6qITHWejVGcObkRRSEIjwAxqWAEDA';
 const SCOPES      = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
 const DISCOVERY   = ['https://sheets.googleapis.com/$discovery/rest?version=v4'];
 
 const MONTHS      = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DAYS_MAP    = [31,28,31,30,31,30,31,31,30,31,30,31];
-const DEFAULT_VENDORS = []; // new restaurants start with an empty vendor list
-let VENDORS = []; // mutable — loaded per-restaurant from its own VENDOR_LIST tab
+const DEFAULT_VENDORS = ['Milk','BREAKFAST - Neeraj Chaurasia','Rumali Roti','Royal Meat','Silver Foil','Rewari','Spices-ECOM','Coal','Global Packaging','Singh Dry Fruit','Vegetables - Rajesh','Dairy','Chicken - Akram','Sadik Trading','Packing Material - Montu','DeliverIT','Gas Cylinder','Other'];
+let VENDORS = [...DEFAULT_VENDORS]; // mutable — loaded from sheet
 const SALES_CATS  = ['Zomato','Swiggy','Toing','Dineout','District','Card','UPI','Cash','Any Other'];
 const ONLINE_CATS = ['Zomato','Swiggy','Toing']; // commission-bearing
 
@@ -729,11 +648,11 @@ async function init(){
   document.getElementById('loading').style.display='none';
   document.getElementById('app').style.display='flex';
 }
-function signIn(){ tokenClient.requestAccessToken({prompt:'select_account consent'}); }
+function signIn(){ tokenClient.requestAccessToken({prompt:'consent'}); }
 function refreshToken(){ tokenClient.requestAccessToken({prompt:''}); }  // silent refresh
 function signOut(){
   google.accounts.oauth2.revoke(accessToken,()=>{});
-  accessToken=null; data=null; SHEET_ID=null; curRestaurant=null; userEmail=null; isAdmin=false;
+  accessToken=null; data=null;
   document.getElementById('topbar').style.display='none';
   document.getElementById('nav').style.display='none';
   document.querySelectorAll('#main .screen').forEach(s=>s.classList.remove('active'));
@@ -748,405 +667,25 @@ async function onSignedIn(){
     try{
       const r=await fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+accessToken}});
       const u=await r.json();
-      userEmail=(u.email||'').toLowerCase().trim();
       document.getElementById('user-name').textContent=u.given_name||u.email;
       document.getElementById('user-avatar').src=u.picture||'';
-    }catch(e){
-      toast('Could not fetch account info','error'); loading(false); return;
-    }
-
-    isAdmin = ADMIN_EMAILS.map(e=>e.toLowerCase()).includes(userEmail);
-
-    // Ensure registry tabs exist on first-ever run
-    await ensureRegistry();
-
-    if(isAdmin){
-      // Admin: show restaurant picker
-      try{
-        await loadAllRestaurants();
-        document.getElementById('admin-email-display').textContent=userEmail;
-        showScreen('restaurant-picker-screen');
-      }catch(e2){
-        throw new Error('Could not load restaurant registry: '+(e2.result?.error?.message||e2.message));
-      }
-      loading(false);
-      return;
-    }
-
-    // Regular user: find their restaurant via ACCESS tab
-    const rest = await findRestaurantForEmail(userEmail);
-    if(!rest){
-      document.getElementById('denied-email').textContent=userEmail;
-      showScreen('access-denied-screen');
-      loading(false);
-      return;
-    }
-    await enterRestaurant(rest);
-  }catch(e){
-    console.error('onSignedIn error',e);
-    loading(false);
-    // Show a persistent error screen instead of silently reverting to login
-    showScreen('access-denied-screen');
-    document.getElementById('denied-email').textContent = userEmail || '(unknown)';
-    const card = document.querySelector('#access-denied-screen .auth-card');
-    let errBox = document.getElementById('signin-error-detail');
-    if(!errBox){
-      errBox = document.createElement('div');
-      errBox.id='signin-error-detail';
-      errBox.style.cssText='margin-top:16px;padding:12px;background:rgba(224,82,82,.1);border:1px solid var(--red);border-radius:8px;font-size:12px;color:var(--red);text-align:left;word-break:break-word';
-      card.appendChild(errBox);
-    }
-    errBox.textContent = 'Error details: ' + (e.message || 'Unknown error') +
-      '\n\nThis usually means this Google account does not have access to the underlying Google Sheet (Master Registry: ' + MASTER_SHEET_ID + '). Open that sheet in Google Drive with this account and share it as Editor, or sign in with the account that owns it.';
-  }
-}
-
-// ── REGISTRY (Master Sheet) ─────────────────────────────────────────────────
-async function masterGet(range){
-  try{
-    const r=await gapi.client.sheets.spreadsheets.values.get({spreadsheetId:MASTER_SHEET_ID,range});
-    return r.result.values||[];
-  }catch(e){
-    // 400 = empty/missing range (tab has no data yet) — treat as empty, not fatal
-    if(e.status===400 || e.result?.error?.code===400) return [];
-    console.error('masterGet error',range,e);
-    throw new Error('Cannot read Master Registry sheet: '+(e.result?.error?.message||e.message||'permission denied'));
-  }
-}
-async function masterUpdate(range,values){
-  await gapi.client.request({
-    path:`https://sheets.googleapis.com/v4/spreadsheets/${MASTER_SHEET_ID}/values/${encodeURIComponent(range)}`,
-    method:'PUT', params:{valueInputOption:'RAW'},
-    body:JSON.stringify({range,values})
-  });
-}
-async function masterEnsureTab(name){
-  let meta;
-  try{
-    meta=await gapi.client.sheets.spreadsheets.get({spreadsheetId:MASTER_SHEET_ID});
-  }catch(e){
-    throw new Error('Cannot access Master Registry sheet ('+MASTER_SHEET_ID+'): '+(e.result?.error?.message||e.message||'permission denied'));
-  }
-  const sheets=meta.result.sheets.map(s=>s.properties.title);
-  if(!sheets.includes(name)){
-    await gapi.client.sheets.spreadsheets.batchUpdate({
-      spreadsheetId:MASTER_SHEET_ID,
-      resource:{requests:[{addSheet:{properties:{title:name}}}]}
-    });
-  }
-}
-async function ensureRegistry(){
-  await masterEnsureTab('RESTAURANTS');
-  await masterEnsureTab('ACCESS');
-  const rRows=await masterGet('RESTAURANTS!A1');
-  if(!rRows.length||!rRows[0][0]){
-    await masterUpdate('RESTAURANTS!A1',[['RestaurantID','Name','Address','SheetID','CreatedDate']]);
-  }
-  const aRows=await masterGet('ACCESS!A1');
-  if(!aRows.length||!aRows[0][0]){
-    await masterUpdate('ACCESS!A1',[['Email','RestaurantID','Role','AddedDate']]);
-  }
-}
-async function loadAllRestaurants(){
-  const rows=await masterGet('RESTAURANTS!A2:E100');
-  allRestaurants=rows.filter(r=>r&&r[0]&&r[1]).map(r=>({id:r[0],name:r[1],address:r[2]||'',sheetId:r[3],created:r[4]||''}));
-  renderRestaurantPicker();
-  // Check if old single-tenant Kakeda data still exists in the Master Sheet
-  await checkForMigratableData();
-}
-
-async function checkForMigratableData(){
-  try{
-    const meta=await gapi.client.sheets.spreadsheets.get({spreadsheetId:MASTER_SHEET_ID});
-    const sheetNames=meta.result.sheets.map(s=>s.properties.title);
-    // Old structure had a VENDOR_LIST tab + month tabs like Apr_2026 directly in master
-    const hasOldData = sheetNames.includes('VENDOR_LIST') || sheetNames.some(n=>/^[A-Za-z]{3}_\d{4}$/.test(n));
-    // Only show if not already migrated (i.e., no restaurant points to MASTER_SHEET_ID... 
-    // actually old data was IN master sheet itself, new restaurants get separate sheets,
-    // so if old tabs still exist in master, offer migration regardless)
-    const alreadyMigrated = allRestaurants.some(r=>r.name && r.name.toLowerCase().includes('kakeda'));
-    if(hasOldData && !alreadyMigrated){
-      document.getElementById('migration-section').style.display='block';
-    }
-  }catch(e){ console.warn('checkForMigratableData',e); }
-}
-
-// ── ONE-TIME MIGRATION: Move old Kakeda data from Master Sheet to its own sheet
-async function migrateKakedaData(){
-  if(!confirm('This will create a new Google Sheet for "Kakeda Hotel, Jail Road" and copy all existing month data and vendor list into it. Continue?')) return;
-  loading(true);
-  try{
-    const meta=await gapi.client.sheets.spreadsheets.get({spreadsheetId:MASTER_SHEET_ID});
-    const sheetNames=meta.result.sheets.map(s=>s.properties.title);
-    const monthTabs=sheetNames.filter(n=>/^[A-Za-z]{3}_\d{4}$/.test(n));
-    const hasVendorList=sheetNames.includes('VENDOR_LIST');
-    const hasIndex=sheetNames.includes('INDEX');
-    const hasSettings=sheetNames.includes('SETTINGS');
-
-    // 1. Create new sheet for Kakeda
-    const createResp=await gapi.client.sheets.spreadsheets.create({
-      properties:{title:'Kakeda Hotel, Jail Road — MIS Data'}
-    });
-    const newSheetId=createResp.result.spreadsheetId;
-
-    // 2. Copy SETTINGS
-    let restName='Kakeda Hotel, Jail Road', restAddress='';
-    if(hasSettings){
-      const sRows=await masterGet('SETTINGS!A1:B10');
-      if(sRows.length) await gapi.client.request({
-        path:`https://sheets.googleapis.com/v4/spreadsheets/${newSheetId}/values/${encodeURIComponent('SETTINGS!A1')}`,
-        method:'PUT', params:{valueInputOption:'RAW'}, body:JSON.stringify({range:'SETTINGS!A1',values:sRows})
-      });
-    } else {
-      await gapi.client.request({
-        path:`https://sheets.googleapis.com/v4/spreadsheets/${newSheetId}/values/${encodeURIComponent('SETTINGS!A1')}`,
-        method:'PUT', params:{valueInputOption:'RAW'},
-        body:JSON.stringify({range:'SETTINGS!A1',values:[['Restaurant Name','Address'],[restName,restAddress]]})
-      });
-    }
-
-    // 3. Copy VENDOR_LIST
-    if(hasVendorList){
-      const vRows=await masterGet('VENDOR_LIST!A1');
-      if(vRows.length&&vRows[0][0]){
-        await gapi.client.sheets.spreadsheets.batchUpdate({
-          spreadsheetId:newSheetId,
-          resource:{requests:[{addSheet:{properties:{title:'VENDOR_LIST'}}}]}
-        });
-        await gapi.client.request({
-          path:`https://sheets.googleapis.com/v4/spreadsheets/${newSheetId}/values/${encodeURIComponent('VENDOR_LIST!A1')}`,
-          method:'PUT', params:{valueInputOption:'RAW'}, body:JSON.stringify({range:'VENDOR_LIST!A1',values:vRows})
-        });
-      }
-    }
-
-    // 4. Copy each month tab's data
-    for(const tab of monthTabs){
-      const rows=await masterGet(`${tab}!A1`);
-      if(!rows.length||!rows[0][0]) continue;
-      await gapi.client.sheets.spreadsheets.batchUpdate({
-        spreadsheetId:newSheetId,
-        resource:{requests:[{addSheet:{properties:{title:tab}}}]}
-      });
-      await gapi.client.request({
-        path:`https://sheets.googleapis.com/v4/spreadsheets/${newSheetId}/values/${encodeURIComponent(tab+'!A1')}`,
-        method:'PUT', params:{valueInputOption:'RAW'}, body:JSON.stringify({range:tab+'!A1',values:rows})
-      });
-    }
-
-    // 5. Copy INDEX
-    if(hasIndex){
-      const iRows=await masterGet('INDEX!A1:E100');
-      if(iRows.length){
-        await gapi.client.sheets.spreadsheets.batchUpdate({
-          spreadsheetId:newSheetId,
-          resource:{requests:[{addSheet:{properties:{title:'INDEX'}}}]}
-        });
-        await gapi.client.request({
-          path:`https://sheets.googleapis.com/v4/spreadsheets/${newSheetId}/values/${encodeURIComponent('INDEX!A1')}`,
-          method:'PUT', params:{valueInputOption:'RAW'}, body:JSON.stringify({range:'INDEX!A1',values:iRows})
-        });
-      }
-    }
-
-    // 6. Register restaurant + admin access
-    const restId='R'+Date.now();
-    const rRows=await masterGet('RESTAURANTS!A2:E100');
-    const newRow=rRows.length+2;
-    await masterUpdate(`RESTAURANTS!A${newRow}:E${newRow}`,
-      [[restId,restName,restAddress,newSheetId,new Date().toLocaleDateString('en-IN')]]);
-    const aRows=await masterGet('ACCESS!A2:D500');
-    const accRow=aRows.length+2;
-    await masterUpdate(`ACCESS!A${accRow}:D${accRow}`,[[ADMIN_EMAIL,restId,'admin',new Date().toLocaleDateString('en-IN')]]);
-
-    toast('Kakeda Hotel data migrated successfully ✓','success');
-    document.getElementById('migration-section').style.display='none';
-    await enterRestaurant({id:restId,name:restName,address:restAddress,sheetId:newSheetId,created:new Date().toLocaleDateString('en-IN')});
-  }catch(e){
-    console.error('migrateKakedaData error',e);
-    toast('Migration failed: '+e.message,'error');
-    loading(false);
-  }
-}
-function renderRestaurantPicker(){
-  const el=document.getElementById('restaurant-list');
-  if(!el) return;
-  if(!allRestaurants.length){
-    el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:12px 0">No restaurants set up yet. Click below to create the first one.</div>';
-    return;
-  }
-  el.innerHTML=allRestaurants.map((r,idx)=>`
-    <div class="archive-item" onclick="enterRestaurantByIndex(${idx})">
-      <div style="flex:1">
-        <div class="month-name">${r.name}</div>
-        <div class="meta">${r.address||'No address set'}</div>
-      </div>
-      <span style="color:var(--accent)">→</span>
-    </div>`).join('');
-}
-function enterRestaurantByIndex(idx){ enterRestaurant(allRestaurants[idx]); }
-async function findRestaurantForEmail(email){
-  const rows=await masterGet('ACCESS!A2:D500');
-  const match=rows.find(r=>r&&r[0]&&r[0].toLowerCase().trim()===email);
-  if(!match) return null;
-  const restId=match[1];
-  const rRows=await masterGet('RESTAURANTS!A2:E100');
-  const rest=rRows.find(r=>r&&r[0]===restId);
-  if(!rest) return null;
-  return {id:rest[0],name:rest[1],address:rest[2]||'',sheetId:rest[3],created:rest[4]||''};
-}
-
-// ── ENTER A RESTAURANT ──────────────────────────────────────────────────────
-async function enterRestaurant(rest){
-  loading(true);
-  try{
-    curRestaurant=rest;
-    SHEET_ID=rest.sheetId;
-    document.getElementById('topbar-subtitle').textContent=rest.name+(rest.address?' · '+rest.address:'');
-    document.title=rest.name+' — MIS';
-
-    // Admin gets a "switch restaurant" button + access tab
-    document.getElementById('switch-restaurant-btn').style.display = isAdmin ? 'inline-block' : 'none';
-    document.getElementById('access-nav-tab').style.display = isAdmin ? 'block' : 'none';
-
-    showScreen('');
+    }catch(e){}
+    // Permanently hide auth screen, show app shell
     document.getElementById('auth-screen').style.display='none';
     document.getElementById('topbar').style.display='flex';
     document.getElementById('nav').style.display='flex';
-
+    // ensure INDEX tab + vendor list
     await ensureIndex();
     await loadVendorList();
     await loadIndex();
+    // default: current month
     const now=new Date();
     await openMonth(now.getMonth()+1, now.getFullYear());
   }catch(e){
-    console.error('enterRestaurant error',e);
-    toast('Could not load restaurant: '+e.message,'error');
-  }finally{
+    console.error('onSignedIn error',e);
+    toast('Sign-in error: '+e.message,'error');
     loading(false);
   }
-}
-function backToPicker(){
-  document.querySelectorAll('#main .screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById('topbar').style.display='none';
-  document.getElementById('nav').style.display='none';
-  loadAllRestaurants();
-  document.getElementById('admin-email-display').textContent=userEmail;
-  showScreen('restaurant-picker-screen');
-}
-function showNewRestaurantForm(){
-  document.querySelectorAll('#main .screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById('new-restaurant-screen').classList.add('active');
-}
-
-// ── CREATE NEW RESTAURANT (Admin) ───────────────────────────────────────────
-async function createRestaurant(){
-  const name=document.getElementById('nr-name').value.trim();
-  const address=document.getElementById('nr-address').value.trim();
-  const emailsRaw=document.getElementById('nr-emails').value.trim();
-  if(!name){ toast('Restaurant name is required','error'); return; }
-  loading(true);
-  try{
-    // 1. Create a brand new Google Sheet for this restaurant
-    const createResp=await gapi.client.sheets.spreadsheets.create({
-      properties:{title:name+' — MIS Data'}
-    });
-    const newSheetId=createResp.result.spreadsheetId;
-
-    // 2. Initialise basic structure in the new sheet
-    await gapi.client.request({
-      path:`https://sheets.googleapis.com/v4/spreadsheets/${newSheetId}/values/${encodeURIComponent('SETTINGS!A1')}`,
-      method:'PUT', params:{valueInputOption:'RAW'},
-      body:JSON.stringify({range:'SETTINGS!A1',values:[['Restaurant Name','Address'],[name,address]]})
-    });
-
-    // 3. Register in MASTER RESTAURANTS tab
-    const restId='R'+Date.now();
-    const rRows=await masterGet('RESTAURANTS!A2:E100');
-    const newRow=rRows.length+2;
-    await masterUpdate(`RESTAURANTS!A${newRow}:E${newRow}`,
-      [[restId,name,address,newSheetId,new Date().toLocaleDateString('en-IN')]]);
-
-    // 4. Add access emails
-    const emails=emailsRaw.split(',').map(e=>e.trim().toLowerCase()).filter(e=>e);
-    if(emails.length){
-      const aRows=await masterGet('ACCESS!A2:D500');
-      const startRow=aRows.length+2;
-      const newAccessRows=emails.map(e=>[e,restId,'user',new Date().toLocaleDateString('en-IN')]);
-      await masterUpdate(`ACCESS!A${startRow}:D${startRow+newAccessRows.length-1}`,newAccessRows);
-    }
-
-    toast('Restaurant "'+name+'" created ✓','success');
-    await enterRestaurant({id:restId,name,address,sheetId:newSheetId,created:new Date().toLocaleDateString('en-IN')});
-  }catch(e){
-    console.error('createRestaurant error',e);
-    toast('Failed to create restaurant: '+e.message,'error');
-    loading(false);
-  }
-}
-
-// ── ACCESS MANAGEMENT (within a restaurant, admin only) ──────────────────────
-async function renderAccessMgmt(){
-  if(!isAdmin||!curRestaurant) return;
-  document.getElementById('access-restaurant-label').textContent=curRestaurant.name;
-  document.getElementById('rest-name-edit').value=curRestaurant.name;
-  document.getElementById('rest-address-edit').value=curRestaurant.address||'';
-  const rows=await masterGet('ACCESS!A2:D500');
-  const myUsers=rows.map((r,i)=>({row:i+2,email:r[0],restId:r[1],role:r[2]||'user'}))
-                     .filter(u=>u.restId===curRestaurant.id);
-  const el=document.getElementById('access-email-list');
-  if(!myUsers.length){
-    el.innerHTML='<div style="color:var(--text3);font-size:13px">No users added yet.</div>';
-  } else {
-    el.innerHTML=myUsers.map(u=>`
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-        <span style="flex:1;font-size:13px">${u.email}</span>
-        <span style="font-size:11px;color:var(--text3);text-transform:uppercase">${u.role}</span>
-        <button class="del-btn" onclick="removeAccessEmail(${u.row})">✕</button>
-      </div>`).join('');
-  }
-}
-async function addAccessEmail(){
-  const email=document.getElementById('new-access-email').value.trim().toLowerCase();
-  if(!email||!email.includes('@')){ toast('Enter a valid email','error'); return; }
-  loading(true);
-  try{
-    const rows=await masterGet('ACCESS!A2:D500');
-    const newRow=rows.length+2;
-    await masterUpdate(`ACCESS!A${newRow}:D${newRow}`,[[email,curRestaurant.id,'user',new Date().toLocaleDateString('en-IN')]]);
-    document.getElementById('new-access-email').value='';
-    toast('Access granted to '+email,'success');
-    renderAccessMgmt();
-  }catch(e){ toast('Failed: '+e.message,'error'); }
-  finally{ loading(false); }
-}
-async function removeAccessEmail(rowNum){
-  if(!confirm('Remove this user\'s access?')) return;
-  loading(true);
-  try{
-    await masterUpdate(`ACCESS!A${rowNum}:D${rowNum}`,[['','','','']]);
-    toast('Access removed','success');
-    renderAccessMgmt();
-  }catch(e){ toast('Failed: '+e.message,'error'); }
-  finally{ loading(false); }
-}
-async function saveRestaurantDetails(){
-  const name=document.getElementById('rest-name-edit').value.trim();
-  const address=document.getElementById('rest-address-edit').value.trim();
-  if(!name){ toast('Name required','error'); return; }
-  loading(true);
-  try{
-    const rows=await masterGet('RESTAURANTS!A2:E100');
-    const idx=rows.findIndex(r=>r&&r[0]===curRestaurant.id);
-    if(idx>=0){
-      const rowNum=idx+2;
-      await masterUpdate(`RESTAURANTS!B${rowNum}:C${rowNum}`,[[name,address]]);
-      curRestaurant.name=name; curRestaurant.address=address;
-      document.getElementById('topbar-subtitle').textContent=name+(address?' · '+address:'');
-      toast('Restaurant details updated ✓','success');
-    }
-  }catch(e){ toast('Failed: '+e.message,'error'); }
-  finally{ loading(false); }
 }
 
 // ── SHEETS API ───────────────────────────────────────────────────────────────
@@ -1539,7 +1078,7 @@ function renderVpayOutstanding(){
 
 // ── VENDOR SETUP ─────────────────────────────────────────────────────────────
 // vendorMasterList stored in Google Sheet tab "VENDOR_LIST" as JSON
-let vendorMasterList=[]; // {name, active} — loaded per restaurant
+let vendorMasterList=[...DEFAULT_VENDORS]; // {name, active}
 
 async function loadVendorList(){
   try{
@@ -2281,7 +1820,7 @@ async function recoverMonths(){
 }
 function showTab(name){
   document.querySelectorAll('.nav-tab').forEach((t,i)=>{
-    const tabs=['sales','expenses','bank-expenses','vendors','vendor-payments','attendance','advances','reports','archive','vendor-setup','access-mgmt'];
+    const tabs=['sales','expenses','bank-expenses','vendors','vendor-payments','attendance','advances','reports','archive','vendor-setup'];
     t.classList.toggle('active',tabs[i]===name);
   });
   document.querySelectorAll('#main .screen').forEach(s=>s.classList.remove('active'));
@@ -2291,13 +1830,12 @@ function showTab(name){
     if(name==='archive') renderArchive();
     if(name==='vendor-payments'){ renderVendorPayments(); renderVpayWeekly(); }
     if(name==='bank-expenses') renderBankExpenses();
-    if(name==='access-mgmt') renderAccessMgmt();
     if(name==='vendor-setup') renderVendorSetup();
   }
 }
 function showScreen(id){
+  // This function is now only used for sign-out; normal navigation uses showTab()
   document.querySelectorAll('#main .screen').forEach(s=>s.classList.remove('active'));
-  if(id) document.getElementById(id).classList.add('active');
 }
 function loading(on){ document.getElementById('loading').style.display=on?'flex':'none'; }
 let toastTimer=null;
