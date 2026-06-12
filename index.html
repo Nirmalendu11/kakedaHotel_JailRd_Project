@@ -384,12 +384,13 @@ tr.total-row td { background: var(--surface3); font-weight: 600; color: var(--ac
       </div>
     </div>
 
-    <!-- ACCESS DENIED -->
+    <!-- ACCESS DENIED / ERROR -->
     <div id="access-denied-screen" class="screen">
-      <div class="auth-card">
+      <div class="auth-card" style="max-width:520px">
         <h1 style="color:var(--red)">Access Restricted</h1>
-        <p>Your Google account (<b id="denied-email"></b>) is not authorized to use this application.<br><br>
-        Please contact your administrator to be granted access, or sign in with a different account.</p>
+        <p>Your Google account (<b id="denied-email"></b>) is not authorized to use this application,
+        or there was a problem accessing the data.<br><br>
+        Please contact your administrator, or sign in with a different account.</p>
         <button class="google-btn" onclick="signOut()">Sign Out &amp; Try Different Account</button>
       </div>
     </div>
@@ -632,7 +633,7 @@ tr.total-row td { background: var(--surface3); font-weight: 600; color: var(--ac
 // ── CONFIG ──────────────────────────────────────────────────────────────────
 const CLIENT_ID   = '18218575360-spri8886hr7g406r1q6o1l5japnlk0ip.apps.googleusercontent.com';
 const MASTER_SHEET_ID = '1ZNxdqAsdjBmdiB6qITHWejVGcObkRRSEIjwAxqWAEDA'; // Registry of all restaurants
-const ADMIN_EMAIL = 'nirmal.mishra1@gmail.com'; // Super admin — sees all restaurants
+const ADMIN_EMAILS = ['nirmal.mishra1@gmail.com','nirmal@fooddestination.net']; // Super admins — see all restaurants
 let SHEET_ID = null; // Set after restaurant is selected — points to that restaurant's own data sheet
 let curRestaurant = null; // {id, name, address, sheetId}
 let userEmail = null;
@@ -745,16 +746,20 @@ async function onSignedIn(){
       toast('Could not fetch account info','error'); loading(false); return;
     }
 
-    isAdmin = (userEmail===ADMIN_EMAIL.toLowerCase());
+    isAdmin = ADMIN_EMAILS.map(e=>e.toLowerCase()).includes(userEmail);
 
     // Ensure registry tabs exist on first-ever run
     await ensureRegistry();
 
     if(isAdmin){
       // Admin: show restaurant picker
-      await loadAllRestaurants();
-      document.getElementById('admin-email-display').textContent=userEmail;
-      showScreen('restaurant-picker-screen');
+      try{
+        await loadAllRestaurants();
+        document.getElementById('admin-email-display').textContent=userEmail;
+        showScreen('restaurant-picker-screen');
+      }catch(e2){
+        throw new Error('Could not load restaurant registry: '+(e2.result?.error?.message||e2.message));
+      }
       loading(false);
       return;
     }
@@ -770,8 +775,20 @@ async function onSignedIn(){
     await enterRestaurant(rest);
   }catch(e){
     console.error('onSignedIn error',e);
-    toast('Sign-in error: '+e.message,'error');
     loading(false);
+    // Show a persistent error screen instead of silently reverting to login
+    showScreen('access-denied-screen');
+    document.getElementById('denied-email').textContent = userEmail || '(unknown)';
+    const card = document.querySelector('#access-denied-screen .auth-card');
+    let errBox = document.getElementById('signin-error-detail');
+    if(!errBox){
+      errBox = document.createElement('div');
+      errBox.id='signin-error-detail';
+      errBox.style.cssText='margin-top:16px;padding:12px;background:rgba(224,82,82,.1);border:1px solid var(--red);border-radius:8px;font-size:12px;color:var(--red);text-align:left;word-break:break-word';
+      card.appendChild(errBox);
+    }
+    errBox.textContent = 'Error details: ' + (e.message || 'Unknown error') +
+      '\n\nThis usually means this Google account does not have access to the underlying Google Sheet (Master Registry: ' + MASTER_SHEET_ID + '). Open that sheet in Google Drive with this account and share it as Editor, or sign in with the account that owns it.';
   }
 }
 
@@ -781,8 +798,10 @@ async function masterGet(range){
     const r=await gapi.client.sheets.spreadsheets.values.get({spreadsheetId:MASTER_SHEET_ID,range});
     return r.result.values||[];
   }catch(e){
+    // 400 = empty/missing range (tab has no data yet) — treat as empty, not fatal
+    if(e.status===400 || e.result?.error?.code===400) return [];
     console.error('masterGet error',range,e);
-    return [];
+    throw new Error('Cannot read Master Registry sheet: '+(e.result?.error?.message||e.message||'permission denied'));
   }
 }
 async function masterUpdate(range,values){
@@ -793,7 +812,12 @@ async function masterUpdate(range,values){
   });
 }
 async function masterEnsureTab(name){
-  const meta=await gapi.client.sheets.spreadsheets.get({spreadsheetId:MASTER_SHEET_ID});
+  let meta;
+  try{
+    meta=await gapi.client.sheets.spreadsheets.get({spreadsheetId:MASTER_SHEET_ID});
+  }catch(e){
+    throw new Error('Cannot access Master Registry sheet ('+MASTER_SHEET_ID+'): '+(e.result?.error?.message||e.message||'permission denied'));
+  }
   const sheets=meta.result.sheets.map(s=>s.properties.title);
   if(!sheets.includes(name)){
     await gapi.client.sheets.spreadsheets.batchUpdate({
